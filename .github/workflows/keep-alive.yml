@@ -1,0 +1,30 @@
+name: Keep scheduled workflows alive
+
+# GitHubは「60日間pushがないリポジトリ」のスケジュール実行(cron)を自動停止する。
+# 毎月1回だけこのワークフローが小さなコミットを積むことでpushを発生させ、
+# update-train-status.yml が無効化されるのを防ぐ。
+
+on:
+  schedule:
+    - cron: "0 0 1 * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update keepalive timestamp
+        run: |
+          mkdir -p .github
+          date -u +"%Y-%m-%dT%H:%M:%SZ" > .github/.keepalive
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .github/.keepalive
+          git diff --staged --quiet || git commit -m "chore: keep scheduled workflows alive"
+          git push
