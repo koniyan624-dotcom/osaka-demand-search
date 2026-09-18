@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>大阪需要サーチ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700;900&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f3f4f7;
+    --panel: #ffffff;
+    --panel-alt: #f8f9fb;
+    --text: #1a1c1e;
+    --text-dim: #6b7280;
+    --border: #e2e4e8;
+    --accent: #2563eb;
+    --accent-dim: rgba(37,99,235,0.10);
+    --red: #dc2626;
+    --red-bg: rgba(220,38,38,0.09);
+    --orange: #d97706;
+    --orange-bg: rgba(217,119,6,0.09);
+    --green: #16a34a;
+    --green-bg: rgba(22,163,74,0.09);
+    --shadow: 0 1px 2px rgba(20,20,30,0.04), 0 1px 8px rgba(20,20,30,0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #101216;
+      --panel: #1a1d23;
+      --panel-alt: #20232a;
+      --text: #e9eaed;
+      --text-dim: #9aa1ab;
+      --border: #2b2f37;
+      --accent: #5b8def;
+      --accent-dim: rgba(91,141,239,0.14);
+      --red: #f0554b;
+      --red-bg: rgba(240,85,75,0.14);
+      --orange: #e2a13a;
+      --orange-bg: rgba(226,161,58,0.14);
+      --green: #4cc27a;
+      --green-bg: rgba(76,194,122,0.14);
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 1px 8px rgba(0,0,0,0.3);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Noto Sans JP", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    padding-bottom: 40px;
+  }
+  h1, h2, .brand, .tabbtn, .field-label, .section-title {
+    font-family: "Zen Kaku Gothic New", "Noto Sans JP", sans-serif;
+  }
+  .mono { font-family: "JetBrains Mono", monospace; }
+
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 16px 0;
+  }
+  .header-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    max-width: 720px;
+    margin: 0 auto;
+  }
+  .brand {
+    font-weight: 900;
+    font-size: 19px;
+    letter-spacing: 0.02em;
+  }
+  .clock {
+    font-size: 13px;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+  .tabs {
+    max-width: 720px;
+    margin: 12px auto 0;
+    display: flex;
+    gap: 4px;
+  }
+  .tabbtn {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 14px;
+    font-weight: 700;
+    padding: 10px 4px;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: color .15s, border-color .15s;
+  }
+  .tabbtn.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 16px;
+  }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .scope-group {
+    display: flex;
+    gap: 4px;
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 3px;
+  }
+  .scope-btn {
+    border: none;
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .scope-btn.active {
+    background: var(--panel);
+    color: var(--text);
+    box-shadow: var(--shadow);
+  }
+  .ghost-btn {
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .ghost-btn:hover { color: var(--red); border-color: var(--red); }
+
+  .card-list { display: flex; flex-direction: column; gap: 8px; }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    box-shadow: var(--shadow);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+  }
+  .card.status-red { border-left-color: var(--red); background: linear-gradient(0deg, var(--red-bg), var(--red-bg)), var(--panel); }
+  .card.status-orange { border-left-color: var(--orange); background: linear-gradient(0deg, var(--orange-bg), var(--orange-bg)), var(--panel); }
+  .card.status-green { border-left-color: var(--green); background: var(--panel); }
+
+  .card-main { min-width: 0; }
+  .card-title { font-weight: 700; font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .card-sub { font-size: 12px; color: var(--text-dim); margin-top: 3px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip {
+    display: inline-block;
+    font-size: 11px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+  .card-right { text-align: right; flex-shrink: 0; }
+  .remain { font-weight: 700; font-size: 15px; }
+  .status-red .remain { color: var(--red); }
+  .status-orange .remain { color: var(--orange); }
+  .status-green .remain { color: var(--green); }
+  .remain-time { font-size: 11px; color: var(--text-dim); }
+  .del-btn {
+    border: none;
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 11px;
+    cursor: pointer;
+    padding: 4px 0 0;
+  }
+  .del-btn:hover { color: var(--red); }
+
+  .train-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    box-shadow: var(--shadow);
+  }
+  .train-row.st-suspend { border-color: var(--red); background: var(--red-bg); }
+  .train-row.st-delay { border-color: var(--orange); background: var(--orange-bg); }
+  .train-name { font-weight: 700; font-size: 14px; }
+  .train-areas { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+  .status-toggle { display: flex; gap: 4px; }
+  .st-btn {
+    border: 1px solid var(--border);
+    background: var(--panel-alt);
+    color: var(--text-dim);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 6px 9px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .st-btn.on.normal { background: var(--green-bg); color: var(--green); border-color: var(--green); }
+  .st-btn.on.delay { background: var(--orange-bg); color: var(--orange); border-color: var(--orange); }
+  .st-btn.on.suspend { background: var(--red-bg); color: var(--red); border-color: var(--red); }
+
+  .empty {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 13px;
+    padding: 30px 0;
+  }
+
+  details.add-panel {
+    margin-top: 16px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+  }
+  details.add-panel > summary {
+    cursor: pointer;
+    padding: 12px 14px;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--accent);
+    list-style: none;
+  }
+  details.add-panel > summary::-webkit-details-marker { display: none; }
+  .add-form {
+    padding: 0 14px 14px;
+    display: grid;
+    gap: 10px;
+  }
+  .field-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+    display: block;
+  }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  input[type=text], input[type=date], select {
+    width: 100%;
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 8px 10px;
+    font-size: 13.5px;
+    color: var(--text);
+    font-family: inherit;
+  }
+  input[list] { font-family: inherit; }
+  .day-grid { display: flex; gap: 4px; }
+  .day-chip {
+    flex: 1;
+    text-align: center;
+    padding: 7px 0;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--panel-alt);
+    color: var(--text-dim);
+    font-size: 12px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .day-chip.on { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); font-weight: 700; }
+  .submit-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 7px;
+    padding: 10px;
+    font-size: 13.5px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 4px;
+  }
+  .submit-btn:active { opacity: 0.85; }
+  .hint {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: -4px;
+  }
+  .conn-warning {
+    max-width: 720px;
+    margin: 10px auto 0;
+    padding: 10px 14px;
+    background: var(--orange-bg);
+    color: var(--orange);
+    border: 1px solid var(--orange);
+    border-radius: 8px;
+    font-size: 12.5px;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-top">
+    <div class="brand">大阪需要サーチ</div>
+    <div class="clock mono" id="clock">--:--:--</div>
+  </div>
+  <div class="tabs">
+    <button class="tabbtn active" data-tab="venues">飲食店</button>
+    <button class="tabbtn" data-tab="trains">鉄道</button>
+    <button class="tabbtn" data-tab="events">イベント</button>
+  </div>
+</header>
+
+<div class="conn-warning" id="connWarning">
+  Firebaseに接続できていません。firebase-config.js の設定値を確認してください。
+</div>
+
+<main>
+
+  <!-- 飲食店タブ -->
+  <section class="panel active" id="panel-venues">
+    <div class="toolbar">
+      <span class="hint">閉店が近い順に表示（本日営業分）</span>
+      <button class="ghost-btn" id="clearVenueSamples">サンプルを削除する</button>
+    </div>
+    <div class="card-list" id="venueList"></div>
+    <details class="add-panel">
+      <summary>＋ 店舗を追加</summary>
+      <form class="add-form" id="venueForm">
+        <div>
+          <label class="field-label">店舗名</label>
+          <input type="text" id="v-name" required>
+        </div>
+        <div class="row2">
+          <div>
+            <label class="field-label">エリア（市）</label>
+            <select id="v-city">
+              <option value="">未設定</option>
+              <option>大阪市</option><option>堺市</option><option>東大阪市</option>
+              <option>八尾市</option><option>吹田市</option><option>豊中市</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label">ジャンル（任意）</label>
+            <input type="text" id="v-genre" placeholder="居酒屋 / ラーメン 等">
+          </div>
+        </div>
+        <div>
+          <label class="field-label">閉店時刻（24時超は 25:00 のように入力）</label>
+          <input type="text" id="v-time" placeholder="24:00" required pattern="^[0-9]{1,2}:[0-9]{2}$">
+        </div>
+        <div>
+          <label class="field-label">営業曜日</label>
+          <div class="day-grid" id="v-days">
+            <div class="day-chip on" data-i="0">日</div>
+            <div class="day-chip on" data-i="1">月</div>
+            <div class="day-chip on" data-i="2">火</div>
+            <div class="day-chip on" data-i="3">水</div>
+            <div class="day-chip on" data-i="4">木</div>
+            <div class="day-chip on" data-i="5">金</div>
+            <div class="day-chip on" data-i="6">土</div>
+          </div>
+        </div>
+        <button type="submit" class="submit-btn">追加する</button>
+      </form>
+    </details>
+  </section>
+
+  <!-- 鉄道タブ -->
+  <section class="panel" id="panel-trains">
+    <div class="toolbar">
+      <span class="hint">遅延・見合わせ路線が上に表示されます</span>
+    </div>
+    <div class="card-list" id="trainList"></div>
+    <details class="add-panel">
+      <summary>＋ 路線を追加</summary>
+      <form class="add-form" id="trainForm">
+        <div>
+          <label class="field-label">路線名</label>
+          <input type="text" id="t-name" required>
+        </div>
+        <div>
+          <label class="field-label">関連エリア（カンマ区切り・任意）</label>
+          <input type="text" id="t-areas" placeholder="大阪市, 豊中市">
+        </div>
+        <button type="submit" class="submit-btn">追加する</button>
+      </form>
+    </details>
+  </section>
+
+  <!-- イベントタブ -->
+  <section class="panel" id="panel-events">
+    <div class="toolbar">
+      <div class="scope-group" id="eventScope">
+        <button class="scope-btn active" data-scope="today">今日</button>
+        <button class="scope-btn" data-scope="tomorrow">今日・明日</button>
+        <button class="scope-btn" data-scope="week">7日以内</button>
+        <button class="scope-btn" data-scope="all">全件</button>
+      </div>
+      <button class="ghost-btn" id="clearEventSamples">サンプルを削除する</button>
+    </div>
+    <div class="card-list" id="eventList"></div>
+    <details class="add-panel">
+      <summary>＋ イベントを追加</summary>
+      <form class="add-form" id="eventForm">
+        <div>
+          <label class="field-label">会場</label>
+          <input type="text" id="e-venue" list="venueOptions" required>
+          <datalist id="venueOptions">
+            <option value="大阪城ホール">
+            <option value="京セラドーム大阪">
+            <option value="フェスティバルホール">
+            <option value="グランキューブ大阪">
+            <option value="なんばHatch">
+            <option value="Zepp Osaka Bayside">
+            <option value="オリックス劇場">
+            <option value="パナソニック スタジアム吹田">
+            <option value="東大阪市花園ラグビー場">
+            <option value="堺市産業振興センター">
+          </datalist>
+        </div>
+        <div>
+          <label class="field-label">公演名（任意）</label>
+          <input type="text" id="e-title">
+        </div>
+        <div class="row2">
+          <div>
+            <label class="field-label">開催日</label>
+            <input type="date" id="e-date" required>
+          </div>
+          <div>
+            <label class="field-label">終演予定時刻</label>
+            <input type="text" id="e-endtime" placeholder="21:00" required pattern="^[0-9]{1,2}:[0-9]{2}$">
+          </div>
+        </div>
+        <div class="row2">
+          <div>
+            <label class="field-label">エリア（市）</label>
+            <select id="e-city">
+              <option value="">未設定</option>
+              <option>大阪市</option><option>堺市</option><option>東大阪市</option>
+              <option>八尾市</option><option>吹田市</option><option>豊中市</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label">ジャンル（任意）</label>
+            <input type="text" id="e-genre" placeholder="ライブ / スポーツ / 展示会">
+          </div>
+        </div>
+        <button type="submit" class="submit-btn">追加する</button>
+      </form>
+    </details>
+  </section>
+
+</main>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getFirestore, collection, addDoc, updateDoc, deleteDoc, doc,
+  onSnapshot, query, getDocs, writeBatch
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { firebaseConfig } from "./firebase-config.js";
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const CITIES = ["大阪市","堺市","東大阪市","八尾市","吹田市","豊中市"];
+const DAY_LABELS = ["日","月","火","水","木","金","土"];
+
+// ---------- 時刻ユーティリティ ----------
+// <input type="time"> は 24:00 以降(翌日扱いの深夜)を表現できないため、
+// あえて type="text" にして独自パーサーで "25:30" = 翌1:30 を扱う。
+function parseTimeToMinutes(str) {
+  const m = /^([0-9]{1,2}):([0-9]{2})$/.exec((str || "").trim());
+  if (!m) return null;
+  return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+}
+function dateStrOf(d) {
+  const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,"0"), dd = String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${dd}`;
+}
+function addDaysToStr(dateStr, n) {
+  const [y,m,d] = dateStr.split("-").map(Number);
+  const dt = new Date(y, m-1, d);
+  dt.setDate(dt.getDate()+n);
+  return dateStrOf(dt);
+}
+function formatRemain(diffMs) {
+  const totalMin = Math.max(0, Math.round(diffMs/60000));
+  const h = Math.floor(totalMin/60), m = totalMin%60;
+  if (h > 0) return `あと${h}時間${m}分`;
+  return `あと${m}分`;
+}
+function fmtClock(d) {
+  return d.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
+// venue: 直近の閉店(今日 or 昨日の営業日扱い)を計算。閉店済みなら null。
+function venueRemaining(venue, now) {
+  let best = null;
+  for (const offset of [-1, 0]) {
+    const anchor = new Date(now);
+    anchor.setDate(anchor.getDate() + offset);
+    anchor.setHours(0,0,0,0);
+    const dayIdx = anchor.getDay();
+    if (!venue.days || !venue.days[dayIdx]) continue;
+    const minutes = parseTimeToMinutes(venue.time);
+    if (minutes === null) continue;
+    const target = new Date(anchor.getTime() + minutes*60000);
+    const diff = target - now;
+    if (diff > 0 && (best === null || diff < best)) best = diff;
+  }
+  return best;
+}
+function eventRemaining(ev, now) {
+  const minutes = parseTimeToMinutes(ev.endTime);
+  if (minutes === null || !ev.date) return null;
+  const [y,m,d] = ev.date.split("-").map(Number);
+  const target = new Date(y, m-1, d, 0, 0, 0, 0);
+  target.setTime(target.getTime() + minutes*60000);
+  const diff = target - now;
+  return diff > 0 ? diff : null;
+}
+function venueStatusClass(diffMs) {
+  const min = diffMs/60000;
+  if (min <= 15) return "status-red";
+  if (min <= 45) return "status-orange";
+  return "status-green";
+}
+function eventStatusClass(diffMs) {
+  const min = diffMs/60000;
+  if (min <= 20) return "status-red";
+  if (min <= 60) return "status-orange";
+  return "status-green";
+}
+
+// ---------- Firestore シード ----------
+async function maybeSeed(colName, sampleDocs) {
+  const snap = await getDocs(query(collection(db, colName)));
+  if (!snap.empty) return;
+  const batch = writeBatch(db);
+  sampleDocs.forEach(data => {
+    batch.set(doc(collection(db, colName)), data);
+  });
+  await batch.commit();
+}
+
+function sampleVenues() {
+  const allDays = [true,true,true,true,true,true,true];
+  return [
+    { name:"難波 うどん処サンプル", city:"大阪市", time:"24:30", genre:"うどん", days:allDays, isSample:true, updatedAt:new Date().toISOString() },
+    { name:"梅田 焼肉サンプル", city:"大阪市", time:"23:30", genre:"焼肉", days:allDays, isSample:true, updatedAt:new Date().toISOString() },
+    { name:"堺東 居酒屋サンプル", city:"堺市", time:"25:00", genre:"居酒屋", days:[false,true,true,true,true,true,true], isSample:true, updatedAt:new Date().toISOString() },
+    { name:"布施 ラーメンサンプル", city:"東大阪市", time:"26:00", genre:"ラーメン", days:allDays, isSample:true, updatedAt:new Date().toISOString() },
+    { name:"江坂 バーサンプル", city:"吹田市", time:"27:00", genre:"バー", days:[false,false,false,false,true,true,true], isSample:true, updatedAt:new Date().toISOString() },
+    { name:"豊中 カフェダイニングサンプル", city:"豊中市", time:"22:00", genre:"カフェ", days:allDays, isSample:true, updatedAt:new Date().toISOString() },
+  ];
+}
+function sampleTrains() {
+  const lines = [
+    ["JR京都線", ["大阪市","吹田市"]],
+    ["JR神戸線", ["大阪市","豊中市"]],
+    ["JR大阪環状線", ["大阪市"]],
+    ["JR阪和線", ["大阪市","堺市"]],
+    ["JRおおさか東線", ["大阪市","東大阪市"]],
+    ["JR東西線", ["大阪市"]],
+    ["JR大和路線", ["大阪市","八尾市"]],
+    ["阪急京都線", ["大阪市","吹田市"]],
+    ["阪急神戸線", ["大阪市","豊中市"]],
+    ["阪急宝塚線", ["大阪市","豊中市"]],
+    ["阪神本線", ["大阪市"]],
+    ["近鉄奈良線", ["大阪市","東大阪市"]],
+    ["近鉄大阪線", ["大阪市","八尾市"]],
+    ["南海本線", ["大阪市","堺市"]],
+    ["南海高野線", ["大阪市","堺市"]],
+    ["大阪メトロ御堂筋線", ["大阪市","吹田市"]],
+    ["大阪モノレール", ["吹田市","豊中市"]],
+    ["新幹線(山陽・東海道)", ["大阪市"]],
+  ];
+  return lines.map(([name, areas]) => ({ name, areas, status:"normal", updatedAt:new Date().toISOString() }));
+}
+function sampleEvents() {
+  const today = dateStrOf(new Date());
+  return [
+    { venue:"京セラドーム大阪", title:"サンプルライブ", date:today, endTime:"21:00", city:"大阪市", genre:"ライブ", isSample:true },
+    { venue:"大阪城ホール", title:"サンプルコンサート", date:today, endTime:"20:30", city:"大阪市", genre:"ライブ", isSample:true },
+    { venue:"パナソニック スタジアム吹田", title:"サンプル試合", date:addDaysToStr(today,2), endTime:"22:00", city:"吹田市", genre:"スポーツ", isSample:true },
+    { venue:"堺市産業振興センター", title:"サンプル展示会", date:addDaysToStr(today,5), endTime:"18:00", city:"堺市", genre:"展示会", isSample:true },
+  ];
+}
+
+// ---------- state ----------
+let venues = [], trains = [], events = [];
+let eventScope = "today";
+
+// ---------- render ----------
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+function renderVenues() {
+  const now = new Date();
+  const rows = venues
+    .map(v => ({ v, diff: venueRemaining(v, now) }))
+    .filter(r => r.diff !== null)
+    .sort((a,b) => a.diff - b.diff);
+
+  const el = document.getElementById("venueList");
+  if (rows.length === 0) {
+    el.innerHTML = `<div class="empty">本日営業中の登録店舗はありません</div>`;
+    return;
+  }
+  el.innerHTML = rows.map(({v, diff}) => `
+    <div class="card ${venueStatusClass(diff)}">
+      <div class="card-main">
+        <div class="card-title">${escapeHtml(v.name)}</div>
+        <div class="card-sub">
+          ${v.city ? `<span class="chip">${escapeHtml(v.city)}</span>` : ""}
+          ${v.genre ? `<span class="chip">${escapeHtml(v.genre)}</span>` : ""}
+          <span class="chip mono">閉店 ${escapeHtml(v.time)}</span>
+        </div>
+        <button class="del-btn" data-del-venue="${v.id}">削除</button>
+      </div>
+      <div class="card-right">
+        <div class="remain">${formatRemain(diff)}</div>
+      </div>
+    </div>
+  `).join("");
+}
+
+function renderTrains() {
+  const priority = { suspend:0, delay:1, normal:2 };
+  const rows = [...trains].sort((a,b) => (priority[a.status] ?? 9) - (priority[b.status] ?? 9) || a.name.localeCompare(b.name,"ja"));
+  const el = document.getElementById("trainList");
+  if (rows.length === 0) {
+    el.innerHTML = `<div class="empty">登録された路線がありません</div>`;
+    return;
+  }
+  const stCls = { normal:"", delay:"st-delay", suspend:"st-suspend" };
+  const stLabel = { normal:"平常", delay:"遅延", suspend:"見合わせ" };
+  el.innerHTML = rows.map(t => `
+    <div class="train-row ${stCls[t.status] || ""}">
+      <div>
+        <div class="train-name">${escapeHtml(t.name)}</div>
+        ${t.areas && t.areas.length ? `<div class="train-areas">${t.areas.map(escapeHtml).join(" / ")}</div>` : ""}
+      </div>
+      <div class="status-toggle">
+        ${["normal","delay","suspend"].map(s => `
+          <button class="st-btn ${t.status===s ? "on "+s : ""}" data-train-status="${t.id}" data-status="${s}">${stLabel[s]}</button>
+        `).join("")}
+      </div>
+    </div>
+  `).join("");
+}
+
+function eventInScope(ev, today) {
+  if (eventScope === "today") return ev.date === today;
+  if (eventScope === "tomorrow") return ev.date === today || ev.date === addDaysToStr(today,1);
+  if (eventScope === "week") {
+    return ev.date >= today && ev.date <= addDaysToStr(today,6);
+  }
+  return true;
+}
+
+function renderEvents() {
+  const now = new Date();
+  const today = dateStrOf(now);
+  const rows = events
+    .filter(ev => eventInScope(ev, today))
+    .map(ev => ({ ev, diff: eventRemaining(ev, now) }))
+    .filter(r => r.diff !== null)
+    .sort((a,b) => a.diff - b.diff);
+
+  const el = document.getElementById("eventList");
+  if (rows.length === 0) {
+    el.innerHTML = `<div class="empty">該当するイベントはありません</div>`;
+    return;
+  }
+  el.innerHTML = rows.map(({ev, diff}) => `
+    <div class="card ${eventStatusClass(diff)}">
+      <div class="card-main">
+        <div class="card-title">${escapeHtml(ev.venue)}${ev.title ? " ｜ " + escapeHtml(ev.title) : ""}</div>
+        <div class="card-sub">
+          ${ev.city ? `<span class="chip">${escapeHtml(ev.city)}</span>` : ""}
+          ${ev.genre ? `<span class="chip">${escapeHtml(ev.genre)}</span>` : ""}
+          <span class="chip mono">${escapeHtml(ev.date)} 終演 ${escapeHtml(ev.endTime)}</span>
+        </div>
+        <button class="del-btn" data-del-event="${ev.id}">削除</button>
+      </div>
+      <div class="card-right">
+        <div class="remain">${formatRemain(diff)}</div>
+      </div>
+    </div>
+  `).join("");
+}
+
+function renderClock() {
+  document.getElementById("clock").textContent = fmtClock(new Date());
+}
+
+// ---------- listeners ----------
+onSnapshot(collection(db, "venues"), snap => {
+  venues = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  renderVenues();
+}, err => showConnWarning());
+onSnapshot(collection(db, "trains"), snap => {
+  trains = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  renderTrains();
+}, err => showConnWarning());
+onSnapshot(collection(db, "events"), snap => {
+  events = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  renderEvents();
+}, err => showConnWarning());
+
+function showConnWarning() {
+  document.getElementById("connWarning").style.display = "block";
+}
+
+// ---------- tabs ----------
+document.querySelectorAll(".tabbtn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tabbtn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("panel-" + btn.dataset.tab).classList.add("active");
+  });
+});
+
+// ---------- event scope ----------
+document.querySelectorAll(".scope-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".scope-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    eventScope = btn.dataset.scope;
+    renderEvents();
+  });
+});
+
+// ---------- venue day chips ----------
+document.querySelectorAll("#v-days .day-chip").forEach(chip => {
+  chip.addEventListener("click", () => chip.classList.toggle("on"));
+});
+
+// ---------- forms ----------
+document.getElementById("venueForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const days = Array.from(document.querySelectorAll("#v-days .day-chip")).map(c => c.classList.contains("on"));
+  await addDoc(collection(db, "venues"), {
+    name: document.getElementById("v-name").value.trim(),
+    city: document.getElementById("v-city").value,
+    genre: document.getElementById("v-genre").value.trim(),
+    time: document.getElementById("v-time").value.trim(),
+    days,
+    isSample: false,
+    updatedAt: new Date().toISOString(),
+  });
+  e.target.reset();
+  document.querySelectorAll("#v-days .day-chip").forEach(c => c.classList.add("on"));
+});
+
+document.getElementById("trainForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const areasRaw = document.getElementById("t-areas").value.trim();
+  await addDoc(collection(db, "trains"), {
+    name: document.getElementById("t-name").value.trim(),
+    areas: areasRaw ? areasRaw.split(",").map(s => s.trim()).filter(Boolean) : [],
+    status: "normal",
+    updatedAt: new Date().toISOString(),
+  });
+  e.target.reset();
+});
+
+document.getElementById("eventForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  await addDoc(collection(db, "events"), {
+    venue: document.getElementById("e-venue").value.trim(),
+    title: document.getElementById("e-title").value.trim(),
+    date: document.getElementById("e-date").value,
+    endTime: document.getElementById("e-endtime").value.trim(),
+    city: document.getElementById("e-city").value,
+    genre: document.getElementById("e-genre").value.trim(),
+    isSample: false,
+  });
+  e.target.reset();
+});
+
+// ---------- delete / status handlers (delegated) ----------
+document.getElementById("venueList").addEventListener("click", async e => {
+  const id = e.target.dataset.delVenue;
+  if (id) await deleteDoc(doc(db, "venues", id));
+});
+document.getElementById("eventList").addEventListener("click", async e => {
+  const id = e.target.dataset.delEvent;
+  if (id) await deleteDoc(doc(db, "events", id));
+});
+document.getElementById("trainList").addEventListener("click", async e => {
+  const id = e.target.dataset.trainStatus;
+  const status = e.target.dataset.status;
+  if (id && status) {
+    await updateDoc(doc(db, "trains", id), { status, updatedAt: new Date().toISOString() });
+  }
+});
+
+// ---------- clear samples ----------
+async function clearSamples(colName) {
+  const snap = await getDocs(query(collection(db, colName)));
+  const batch = writeBatch(db);
+  let count = 0;
+  snap.forEach(d => {
+    if (d.data().isSample) { batch.delete(d.ref); count++; }
+  });
+  if (count > 0) await batch.commit();
+}
+document.getElementById("clearVenueSamples").addEventListener("click", () => clearSamples("venues"));
+document.getElementById("clearEventSamples").addEventListener("click", () => clearSamples("events"));
+
+// ---------- init ----------
+document.getElementById("e-date").value = dateStrOf(new Date());
+renderClock();
+setInterval(renderClock, 1000);
+setInterval(() => { renderVenues(); renderEvents(); renderTrains(); }, 30000);
+
+(async () => {
+  try {
+    await maybeSeed("venues", sampleVenues());
+    await maybeSeed("trains", sampleTrains());
+    await maybeSeed("events", sampleEvents());
+  } catch (err) {
+    console.error(err);
+    showConnWarning();
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+rules_version = '2';
+
+// 簡易設定: 誰でも読み書き可能。
+// 少人数での運用を想定した最小構成。荒らし・不正利用が発生した場合は
+// Firebase Authentication（匿名ログイン等）を導入し、request.auth != null の条件を
+// 追加することを検討してください。
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
