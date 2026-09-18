@@ -74,12 +74,29 @@ git push -u origin main
 - 本番データを入れ始めたら、飲食店タブ・イベントタブの「サンプルを削除する」ボタンで一括削除できます
 - 鉄道タブは運行状況（平常／遅延／見合わせ）をボタンでその場で切り替えられます（全員に即時反映）
 
+## 鉄道の自動更新（JR主要路線のみ）
+
+以下7路線は、GitHub Actionsが10分おきにJR西日本の運行情報を取得し、自動でステータスを更新します。
+
+- JR京都線・JR神戸線・JR大阪環状線・JR阪和線・JRおおさか東線・JR大和路線・JR東西線
+
+仕組みは [scripts/update-train-status.js](scripts/update-train-status.js) と [.github/workflows/update-train-status.yml](.github/workflows/update-train-status.yml) です。GitHubにpushするだけで動作し、追加のシークレット設定は不要です（Firestoreルールが「誰でも書き込み可」のため）。
+
+**注意点**
+
+- JR西日本の公式サポート対象ではない非公式エンドポイント（`train-guide.westjr.co.jp`）を利用しているため、先方の仕様変更で予告なく取得できなくなる可能性があります
+- GitHubの仕様上、リポジトリに60日間pushがないと定期実行（スケジュール）が自動停止します。その場合はリポジトリの「Actions」タブから対象のワークフローを開き、「Run workflow」で手動実行するか、何かしらのコミットをpushすると再開します
+- 上記7路線以外（阪急・阪神・近鉄・南海・大阪メトロ・大阪モノレール・新幹線）は引き続き手動更新です。統一的な無料APIが見つからなかったため未対応です
+- 自動更新の路線名の横には「自動」ラベルが表示されます。手動でボタンを押すとその場で上書きされますが、次の自動実行（最大10分後）で最新の公式情報に戻ります
+
 ## ファイル構成
 
 ```
 index.html          画面本体（HTML+CSS+JS）
 firebase-config.js   Firebase接続設定（要入力）
 firestore.rules      Firestoreセキュリティルール
+scripts/update-train-status.js       JR運行情報の自動取得スクリプト
+.github/workflows/update-train-status.yml  10分おきの自動実行設定
 README.md            このファイル
 HANDOFF.md           経緯・意思決定の引き継ぎメモ
 ```
