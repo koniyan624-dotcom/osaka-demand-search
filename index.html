@@ -579,7 +579,7 @@
   <!-- マップタブ -->
   <section class="panel" id="panel-map">
     <div class="toolbar">
-      <span class="hint">飲食店・イベントを地図上にピン表示（緑→オレンジ→赤の順で切迫）</span>
+      <span class="hint" id="mapHint">飲食店・イベントを地図上にピン表示（緑→オレンジ→赤の順で切迫）</span>
       <button class="ghost-btn" id="mapReload" style="color:var(--accent);border-color:var(--accent);">再読み込み</button>
     </div>
     <div id="mapView"></div>
@@ -593,7 +593,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
   getFirestore, collection, addDoc, updateDoc, deleteDoc, doc,
-  onSnapshot, query, getDocs, writeBatch
+  onSnapshot, query, getDocs, writeBatch, getDoc, setDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
 
@@ -959,6 +959,125 @@ function renderHotels() {
   `).join("");
 }
 
+// ---------- マップ（飲食店・イベントをピン表示） ----------
+// 緯度経度はOpenStreetMap Nominatimで店舗名・会場名から検索して求める。
+// 同じ場所を何度も検索しないよう、一度求めた座標はFirestoreの geocache
+// コレクションに保存して使い回す（Nominatimの無料枠は1秒1リクエスト程度が目安のため）。
+let leafletMap = null;
+let mapMarkersLayer = null;
+const geocodeMemoryCache = new Map();
+
+function geocacheId(name, city) {
+  return `${name}_${city || ""}`.replace(/\//g, "_").slice(0, 300);
+}
+
+function cssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+function colorForStatusClass(cls) {
+  if (cls === "status-red") return cssVar("--red");
+  if (cls === "status-orange") return cssVar("--orange");
+  return cssVar("--green");
+}
+
+async function geocodePlace(name, city) {
+  const id = geocacheId(name, city);
+  if (geocodeMemoryCache.has(id)) return geocodeMemoryCache.get(id);
+
+  const cacheRef = doc(db, "geocache", id);
+  const cached = await getDoc(cacheRef);
+  if (cached.exists()) {
+    const data = cached.data();
+    const coords = { lat: data.lat, lng: data.lng };
+    geocodeMemoryCache.set(id, coords);
+    return coords;
+  }
+
+  const firstWord = name.split(/[\s　]/)[0];
+  const queries = [`${firstWord} ${city || ""}`.trim(), `${name} ${city || ""}`.trim()];
+  let found = null;
+  for (const q of queries) {
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=jp&q=${encodeURIComponent(q)}`;
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const list = await res.json();
+      if (list && list[0]) {
+        found = { lat: parseFloat(list[0].lat), lng: parseFloat(list[0].lon) };
+        break;
+      }
+    } catch (err) {
+      console.error(`ジオコーディング失敗: ${q}`, err);
+    }
+    await new Promise((r) => setTimeout(r, 1100));
+  }
+
+  geocodeMemoryCache.set(id, found);
+  if (found) {
+    await setDoc(cacheRef, { ...found, name, city: city || "", updatedAt: new Date().toISOString() });
+  }
+  return found;
+}
+
+function ensureLeafletMap() {
+  if (leafletMap) return;
+  leafletMap = L.map("mapView").setView([34.6937, 135.5023], 12);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom: 19,
+  }).addTo(leafletMap);
+  mapMarkersLayer = L.layerGroup().addTo(leafletMap);
+}
+
+let mapLoading = false;
+async function renderMap() {
+  ensureLeafletMap();
+  leafletMap.invalidateSize();
+  if (mapLoading) return;
+  mapLoading = true;
+
+  const hintEl = document.getElementById("mapHint");
+  mapMarkersLayer.clearLayers();
+
+  const now = new Date();
+  const today = dateStrOf(now);
+  const venueItems = venues
+    .map((v) => ({ kind: "venue", item: v, diff: venueRemaining(v, now) }))
+    .filter((r) => r.diff !== null);
+  const eventItems = events
+    .filter((ev) => ev.date === today)
+    .map((ev) => ({ kind: "event", item: ev, diff: eventRemaining(ev, now) }))
+    .filter((r) => r.diff !== null);
+  const targets = [...venueItems, ...eventItems];
+
+  let done = 0;
+  for (const t of targets) {
+    const name = t.kind === "venue" ? t.item.name : t.item.venue;
+    const city = t.kind === "venue" ? t.item.city : t.item.city;
+    const coords = await geocodePlace(name, city || "大阪市");
+    done++;
+    if (hintEl) hintEl.textContent = `読み込み中... (${done}/${targets.length})`;
+    if (!coords) continue;
+    const cls = t.kind === "venue" ? venueStatusClass(t.diff) : eventStatusClass(t.diff);
+    const color = colorForStatusClass(cls);
+    const label = t.kind === "venue"
+      ? `${escapeHtml(name)}<br>閉店 ${escapeHtml(t.item.time)}（${formatRemain(t.diff)}）`
+      : `${escapeHtml(name)}${t.item.title ? " ｜ " + escapeHtml(t.item.title) : ""}<br>終演 ${escapeHtml(t.item.endTime)}（${formatRemain(t.diff)}）`;
+    L.circleMarker([coords.lat, coords.lng], {
+      radius: 9,
+      color,
+      fillColor: color,
+      fillOpacity: 0.85,
+      weight: 2,
+    }).bindPopup(label).addTo(mapMarkersLayer);
+  }
+
+  mapLoading = false;
+  if (hintEl) hintEl.textContent = `飲食店・イベントを地図上にピン表示（緑→オレンジ→赤の順で切迫、${targets.length}件）`;
+}
+
+document.getElementById("mapReload").addEventListener("click", () => renderMap());
+
 // ---------- tabs ----------
 document.querySelectorAll(".tabbtn").forEach(btn => {
   btn.addEventListener("click", () => {
@@ -967,6 +1086,7 @@ document.querySelectorAll(".tabbtn").forEach(btn => {
     btn.classList.add("active");
     document.getElementById("panel-" + btn.dataset.tab).classList.add("active");
     if (btn.dataset.tab === "hotels") renderHotels();
+    if (btn.dataset.tab === "map") renderMap();
   });
 });
 
