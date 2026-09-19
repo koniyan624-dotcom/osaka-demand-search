@@ -106,8 +106,20 @@ async function fetchNankai() {
 
 // ---------- Osaka Metro（e METROアプリ用の非公式API） ----------
 // 実際に障害が発生した際のレスポンス例を確認できていないため、
-// operationInfoList の中身に「御堂筋」またはrouteCode "1" を含む要素があるかで
+// operationInfoList の中身に各路線名またはrouteCodeを含む要素があるかで
 // 簡易判定するベストエフォート実装。想定と異なる形式で来た場合は誤判定の可能性がある。
+const OSAKA_METRO_LINES = [
+  { code: "1", name: "御堂筋線", mapped: "大阪メトロ御堂筋線" },
+  { code: "2", name: "谷町線", mapped: "大阪メトロ谷町線" },
+  { code: "3", name: "四つ橋線", mapped: "大阪メトロ四つ橋線" },
+  { code: "4", name: "中央線", mapped: "大阪メトロ中央線" },
+  { code: "5", name: "千日前線", mapped: "大阪メトロ千日前線" },
+  { code: "6", name: "堺筋線", mapped: "大阪メトロ堺筋線" },
+  { code: "7", name: "長堀鶴見緑地線", mapped: "大阪メトロ長堀鶴見緑地線" },
+  { code: "8", name: "今里筋線", mapped: "大阪メトロ今里筋線" },
+  { code: "9", name: "ニュートラム", mapped: "大阪メトロニュートラム" },
+];
+
 async function fetchOsakaMetro() {
   const apiKey = process.env.OSAKA_METRO_API_KEY;
   if (!apiKey) throw new Error("環境変数 OSAKA_METRO_API_KEY が未設定");
@@ -117,12 +129,14 @@ async function fetchOsakaMetro() {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
   const list = Array.isArray(data.operationInfoList) ? data.operationInfoList : [];
-  const relevant = list.filter((item) => {
-    const s = JSON.stringify(item);
-    return s.includes("御堂筋") || s.includes('"routeCode":"1"');
+  return OSAKA_METRO_LINES.map(({ code, name, mapped }) => {
+    const relevant = list.filter((item) => {
+      const s = JSON.stringify(item);
+      return s.includes(name) || s.includes(`"routeCode":"${code}"`);
+    });
+    const text = relevant.map((x) => JSON.stringify(x)).join(" ");
+    return { name: mapped, status: classifyIssueText(text, relevant.length > 0) };
   });
-  const text = relevant.map((x) => JSON.stringify(x)).join(" ");
-  return [{ name: "大阪メトロ御堂筋線", status: classifyIssueText(text, relevant.length > 0) }];
 }
 
 async function main() {
