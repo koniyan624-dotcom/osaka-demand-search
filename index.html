@@ -793,11 +793,16 @@ function hotelStatusClass(count) {
   return "status-green";
 }
 
-async function fetchVacantHotelCount(area) {
+async function fetchVacantHotelCount(area, retrying) {
   const today = dateStrOf(new Date());
   const tomorrow = addDaysToStr(today, 1);
   const url = `https://openapi.rakuten.co.jp/engine/api/Travel/VacantHotelSearch/20170426?format=json&applicationId=${RAKUTEN_APP_ID}&accessKey=${RAKUTEN_ACCESS_KEY}&latitude=${area.lat}&longitude=${area.lng}&searchRadius=2&datumType=1&checkinDate=${today}&checkoutDate=${tomorrow}&adultNum=2&hits=1`;
   const res = await fetch(url);
+  if (res.status === 429 && !retrying) {
+    // レート制限。少し待って1回だけ再試行する。
+    await new Promise((r) => setTimeout(r, 2000));
+    return fetchVacantHotelCount(area, true);
+  }
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
   if (data.error) throw new Error(data.error_description || data.error);
@@ -819,7 +824,7 @@ async function renderHotels(force) {
       console.error(`${area.name}の取得に失敗:`, err);
       results.push({ area, count: null });
     }
-    await new Promise((r) => setTimeout(r, 300));
+    await new Promise((r) => setTimeout(r, 1100));
   }
   hotelsLastFetched = Date.now();
   hotelsLoading = false;
