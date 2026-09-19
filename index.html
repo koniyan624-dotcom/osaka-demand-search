@@ -334,6 +334,7 @@
     <button class="tabbtn active" data-tab="trains">鉄道</button>
     <button class="tabbtn" data-tab="events">イベント</button>
     <button class="tabbtn" data-tab="venues">飲食店</button>
+    <button class="tabbtn" data-tab="hotels">ホテル</button>
   </div>
 </header>
 
@@ -477,6 +478,15 @@
         <button type="submit" class="submit-btn">追加する</button>
       </form>
     </details>
+  </section>
+
+  <!-- ホテルタブ -->
+  <section class="panel" id="panel-hotels">
+    <div class="toolbar">
+      <span class="hint">今夜1泊・空室のあるホテルが少ないエリアほど混雑の目安</span>
+    </div>
+    <div class="card-list" id="hotelList"></div>
+    <p class="hint" style="margin-top:14px;">楽天トラベルの空室検索結果に基づく参考値です。エリア内の全ホテル数は取得できないため、正確な稼働率ではなく「空室ありホテルの件数」を目安として表示しています。</p>
   </section>
 
 </main>
@@ -758,6 +768,77 @@ function showConnWarning() {
   document.getElementById("connWarning").style.display = "block";
 }
 
+// ---------- ホテル空室状況（楽天トラベル空室検索API） ----------
+// applicationId/accessKeyはRakuten側で「Web Application」種別・許可ドメインを
+// osaka-demand-search.pages.dev に限定して発行したもの。Refererチェックにより
+// 登録ドメイン以外からは利用できないため、Firebaseのapikey同様クライアント
+// コードに含めて問題ない想定。
+const RAKUTEN_APP_ID = "b9bd1ef7-e3d6-4e21-9cfb-d882b5cf9d66";
+const RAKUTEN_ACCESS_KEY = "pk_qmZ2scMXiiPHHhzfyJeWgTxzsEWIA8ziTkQ2PxcQ3r0";
+const HOTEL_AREAS = [
+  { name: "梅田・キタ", lat: 34.7024854, lng: 135.4937619 },
+  { name: "難波・ミナミ", lat: 34.6627134, lng: 135.5013712 },
+  { name: "新大阪", lat: 34.7334, lng: 135.5002 },
+  { name: "堺", lat: 34.5732556, lng: 135.4830127 },
+  { name: "東大阪(布施)", lat: 34.6784, lng: 135.6009 },
+  { name: "吹田(江坂)", lat: 34.7602, lng: 135.5158 },
+  { name: "豊中", lat: 34.7815, lng: 135.4696 },
+];
+let hotelsLastFetched = 0;
+let hotelsLoading = false;
+
+function hotelStatusClass(count) {
+  if (count <= 5) return "status-red";
+  if (count <= 20) return "status-orange";
+  return "status-green";
+}
+
+async function fetchVacantHotelCount(area) {
+  const today = dateStrOf(new Date());
+  const tomorrow = addDaysToStr(today, 1);
+  const url = `https://openapi.rakuten.co.jp/engine/api/Travel/VacantHotelSearch/20170426?format=json&applicationId=${RAKUTEN_APP_ID}&accessKey=${RAKUTEN_ACCESS_KEY}&latitude=${area.lat}&longitude=${area.lng}&searchRadius=2&datumType=1&checkinDate=${today}&checkoutDate=${tomorrow}&adultNum=2&hits=1`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  if (data.error) throw new Error(data.error_description || data.error);
+  return data.pagingInfo?.recordCount ?? 0;
+}
+
+async function renderHotels(force) {
+  const el = document.getElementById("hotelList");
+  if (!force && Date.now() - hotelsLastFetched < 5 * 60 * 1000) return;
+  if (hotelsLoading) return;
+  hotelsLoading = true;
+  el.innerHTML = `<div class="empty">読み込み中...</div>`;
+  const results = [];
+  for (const area of HOTEL_AREAS) {
+    try {
+      const count = await fetchVacantHotelCount(area);
+      results.push({ area, count });
+    } catch (err) {
+      console.error(`${area.name}の取得に失敗:`, err);
+      results.push({ area, count: null });
+    }
+    await new Promise((r) => setTimeout(r, 300));
+  }
+  hotelsLastFetched = Date.now();
+  hotelsLoading = false;
+  results.sort((a, b) => (a.count ?? 999) - (b.count ?? 999));
+  el.innerHTML = results.map(({ area, count }) => `
+    <div class="card ${count === null ? "" : hotelStatusClass(count)}">
+      <div class="card-main">
+        <div class="card-title">${escapeHtml(area.name)}</div>
+        <div class="card-sub">
+          <a href="${mapUrlFor(area.name, "大阪")}" target="_blank" rel="noopener noreferrer" class="chip" style="color:var(--accent);">地図</a>
+        </div>
+      </div>
+      <div class="card-right">
+        <div class="remain">${count === null ? "取得失敗" : `空室あり ${count}件`}</div>
+      </div>
+    </div>
+  `).join("");
+}
+
 // ---------- tabs ----------
 document.querySelectorAll(".tabbtn").forEach(btn => {
   btn.addEventListener("click", () => {
@@ -765,6 +846,7 @@ document.querySelectorAll(".tabbtn").forEach(btn => {
     document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
     btn.classList.add("active");
     document.getElementById("panel-" + btn.dataset.tab).classList.add("active");
+    if (btn.dataset.tab === "hotels") renderHotels(false);
   });
 });
 
