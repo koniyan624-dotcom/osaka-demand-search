@@ -15,3 +15,5 @@ jobs:
           node-version: 20
       - run: npm install firebase
       - run: node scripts/update-train-status.js
+        env:
+          OSAKA_METRO_API_KEY: ${{ secrets.OSAKA_METRO_API_KEY }}

@@ -109,8 +109,10 @@ async function fetchNankai() {
 // operationInfoList の中身に「御堂筋」またはrouteCode "1" を含む要素があるかで
 // 簡易判定するベストエフォート実装。想定と異なる形式で来た場合は誤判定の可能性がある。
 async function fetchOsakaMetro() {
+  const apiKey = process.env.OSAKA_METRO_API_KEY;
+  if (!apiKey) throw new Error("環境変数 OSAKA_METRO_API_KEY が未設定");
   const res = await fetch("https://api.mobility-operation-info.emetro-app.osakametro.co.jp/app/api/v1/operationinfo", {
-    headers: { "X-Api-Key": "XSGUG4p5Ya5vQCehV3zZjaDheZAQMpqP9paVan8W" },
+    headers: { "X-Api-Key": apiKey },
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
