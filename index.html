@@ -679,6 +679,7 @@ function renderTrains() {
       <div>
         <div class="train-name">${escapeHtml(t.name)}${t.source === "auto" ? '<span class="chip" style="margin-left:6px;">自動</span>' : ""}</div>
         ${t.areas && t.areas.length ? `<div class="train-areas">${t.areas.map(escapeHtml).join(" / ")}</div>` : ""}
+        ${t.status !== "normal" && t.detail ? `<div class="train-areas" style="color:var(--text-dim);">${escapeHtml(t.detail)}</div>` : ""}
       </div>
       <div class="status-toggle">
         ${["normal","delay","suspend"].map(s => `
@@ -833,7 +834,7 @@ document.getElementById("trainList").addEventListener("click", async e => {
   const id = e.target.dataset.trainStatus;
   const status = e.target.dataset.status;
   if (id && status) {
-    await updateDoc(doc(db, "trains", id), { status, source: "manual", updatedAt: new Date().toISOString() });
+    await updateDoc(doc(db, "trains", id), { status, detail: null, source: "manual", updatedAt: new Date().toISOString() });
   }
 });
 
