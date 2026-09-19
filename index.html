@@ -445,6 +445,22 @@
     </div>
     <div class="card-list" id="trainList"></div>
     <details class="add-panel">
+      <summary>ℹ️ 自動更新される路線一覧（26路線）</summary>
+      <div class="add-form" style="padding-top:10px;">
+        <p class="hint" style="margin:0 0 8px;">下記の路線は10分おきに公式情報から自動更新されます。それ以外の路線は「＋ 路線を追加」から登録した場合、手動更新になります。</p>
+        <ul style="margin:0;padding-left:18px;font-size:13px;color:var(--text);line-height:1.9;">
+          <li>JR西日本：JR京都線・JR神戸線・JR大阪環状線・JR阪和線・JRおおさか東線・JR大和路線・JR東西線</li>
+          <li>阪急電鉄：阪急京都線・阪急神戸線・阪急宝塚線</li>
+          <li>阪神電気鉄道：阪神本線</li>
+          <li>近畿日本鉄道：近鉄大阪線・近鉄奈良線</li>
+          <li>南海電気鉄道：南海本線・南海高野線</li>
+          <li>Osaka Metro：御堂筋線・谷町線・四つ橋線・中央線・千日前線・堺筋線・長堀鶴見緑地線・今里筋線・ニュートラム</li>
+          <li>大阪モノレール</li>
+          <li>JR東海：新幹線（山陽・東海道）</li>
+        </ul>
+      </div>
+    </details>
+    <details class="add-panel">
       <summary>＋ 路線を追加</summary>
       <form class="add-form" id="trainForm">
         <div>
@@ -472,6 +488,23 @@
       <button class="ghost-btn" id="clearEventSamples">サンプルを削除する</button>
     </div>
     <div class="card-list" id="eventList"></div>
+    <details class="add-panel">
+      <summary>ℹ️ 自動更新される会場一覧（9会場）</summary>
+      <div class="add-form" style="padding-top:10px;">
+        <p class="hint" style="margin:0 0 8px;">下記の会場は3時間おきに公式サイトから公演・試合スケジュールを自動取得します（終演時刻は開演時刻からの推定目安）。グランキューブ大阪・堺市産業振興センターなど、それ以外の会場は「＋ イベントを追加」から手動登録してください。</p>
+        <ul style="margin:0;padding-left:18px;font-size:13px;color:var(--text);line-height:1.9;">
+          <li>大阪城ホール</li>
+          <li>京セラドーム大阪</li>
+          <li>フェスティバルホール（当月分のみ）</li>
+          <li>なんばHatch（当月分のみ）</li>
+          <li>Zepp Osaka Bayside</li>
+          <li>オリックス劇場</li>
+          <li>長居スタジアム（セレッソ大阪のホームゲーム）</li>
+          <li>パナソニック スタジアム吹田（ガンバ大阪のホームゲーム）</li>
+          <li>東大阪市花園ラグビー場（花園近鉄ライナーズの花園開催分）</li>
+        </ul>
+      </div>
+    </details>
     <details class="add-panel">
       <summary>＋ イベントを追加</summary>
       <form class="add-form" id="eventForm">
