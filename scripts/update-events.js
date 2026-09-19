@@ -133,9 +133,9 @@ async function fetchNambaHatch() {
   return events;
 }
 
-// ---------- Zepp Osaka Bayside ----------
-async function fetchZeppOsakaBayside() {
-  const res = await fetch("https://www.zepp.co.jp/hall/osakabayside/schedule/");
+// ---------- Zepp（同一チェーンのHTML構造を共有。hall部分だけ差し替えれば他館にも流用可） ----------
+async function fetchZeppHall(hallSlug, venueName) {
+  const res = await fetch(`https://www.zepp.co.jp/hall/${hallSlug}/schedule/`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const html = await res.text();
   const chunks = html.split('<div class="sch-content-date__inner">').slice(1);
@@ -147,7 +147,7 @@ async function fetchZeppOsakaBayside() {
     const startM = /sch-content-text-date__start">(\d{1,2}:\d{2})</.exec(chunk);
     if (!yearM || !monthDayM || !titleM || !startM) continue;
     events.push({
-      venue: "Zepp Osaka Bayside",
+      venue: venueName,
       title: decodeEntities(titleM[1].trim()),
       date: `${yearM[1]}-${pad2(Number(monthDayM[1]))}-${pad2(Number(monthDayM[2]))}`,
       endTime: estimateEndTime(startM[1]),
@@ -156,6 +156,91 @@ async function fetchZeppOsakaBayside() {
     });
   }
   return events;
+}
+function fetchZeppOsakaBayside() {
+  return fetchZeppHall("osakabayside", "Zepp Osaka Bayside");
+}
+function fetchZeppNamba() {
+  return fetchZeppHall("namba", "Zepp Namba(OSAKA)");
+}
+
+// ---------- ビルボードライブ大阪 ----------
+async function fetchBillboardLiveOsakaMonth(monthParam) {
+  const url = monthParam
+    ? `https://www.billboard-live.com/osaka/schedules?month=${monthParam}`
+    : "https://www.billboard-live.com/osaka/schedules";
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const html = await res.text();
+  const chunks = html.split('<a class="ArtistCardFull_root__').slice(1);
+  const events = [];
+  for (const chunk of chunks) {
+    const dateM = /[?&](?:amp;)?date=(\d{4}-\d{2}-\d{2})/.exec(chunk);
+    const titleM = /EventHeading_mainTitle__\w+"\s+aria-label="([^"]*)"/.exec(chunk);
+    const stages = [...chunk.matchAll(/Stage<!-- --> \/ Open <!-- -->(\d{1,2}:\d{2})<!-- --> \/ Start <!-- -->(\d{1,2}:\d{2})/g)];
+    if (!dateM || !titleM || stages.length === 0) continue;
+    const lastStart = stages[stages.length - 1][2];
+    events.push({
+      venue: "ビルボードライブ大阪",
+      title: decodeEntities(titleM[1].trim()),
+      date: dateM[1],
+      endTime: estimateEndTime(lastStart, 1.5),
+      city: "大阪市",
+      genre: "ライブ",
+    });
+  }
+  return events;
+}
+async function fetchBillboardLiveOsaka() {
+  const now = new Date();
+  const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const nextParam = `${next.getFullYear()}-${pad2(next.getMonth() + 1)}-01`;
+  const [a, b] = await Promise.all([
+    fetchBillboardLiveOsakaMonth(),
+    fetchBillboardLiveOsakaMonth(nextParam),
+  ]);
+  const now2 = new Date();
+  return [...a, ...b].filter((ev) => ev.date >= `${now2.getFullYear()}-${pad2(now2.getMonth() + 1)}-${pad2(now2.getDate())}`);
+}
+
+// ---------- 梅田CLUB QUATTRO ----------
+async function fetchUmedaClubQuattroMonth(ymParam) {
+  const url = ymParam
+    ? `https://www.club-quattro.com/umeda/schedule/?ym=${ymParam}`
+    : "https://www.club-quattro.com/umeda/schedule/";
+  // このサイトはUser-Agentが無いリクエストを弾く（接続を切断する）ため、ブラウザのUAを付与する。
+  const res = await fetch(url, {
+    headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36" },
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const html = await res.text();
+  const chunks = html.split('<li id="event-').slice(1);
+  const events = [];
+  for (const chunk of chunks) {
+    const dateM = /data-event-date="(\d{4}-\d{2}-\d{2})"/.exec(chunk);
+    const titleM = /txt-02">([^<]*)</.exec(chunk) || /txt-01"><span class="hv-elm">([^<]*)</.exec(chunk);
+    const timeM = /開場\/開演<\/dt>\s*<dd>\s*[\d:]+\s*\/\s*(\d{1,2}:\d{2})/.exec(chunk);
+    if (!dateM || !titleM || !timeM) continue;
+    events.push({
+      venue: "梅田CLUB QUATTRO",
+      title: decodeEntities(titleM[1].trim()),
+      date: dateM[1],
+      endTime: estimateEndTime(timeM[1]),
+      city: "大阪市",
+      genre: "ライブ",
+    });
+  }
+  return events;
+}
+async function fetchUmedaClubQuattro() {
+  const now = new Date();
+  const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const nextParam = `${next.getFullYear()}${pad2(next.getMonth() + 1)}`;
+  // このサイトは同一ホストへの同時接続で接続を切断することがあるため、直列で取得する。
+  const a = await fetchUmedaClubQuattroMonth();
+  const b = await fetchUmedaClubQuattroMonth(nextParam);
+  const today = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+  return [...a, ...b].filter((ev) => ev.date >= today);
 }
 
 // ---------- 長居スタジアム（セレッソ大阪ホームゲーム） ----------
@@ -293,6 +378,9 @@ async function main() {
     ["フェスティバルホール", fetchFestivalHall],
     ["なんばHatch", fetchNambaHatch],
     ["Zepp Osaka Bayside", fetchZeppOsakaBayside],
+    ["Zepp Namba(OSAKA)", fetchZeppNamba],
+    ["ビルボードライブ大阪", fetchBillboardLiveOsaka],
+    ["梅田CLUB QUATTRO", fetchUmedaClubQuattro],
     ["長居スタジアム", fetchNagaiStadium],
     ["パナソニック スタジアム吹田", fetchPanasonicStadium],
     ["東大阪市花園ラグビー場", fetchHanazonoRugby],
