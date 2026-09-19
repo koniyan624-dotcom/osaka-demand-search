@@ -574,14 +574,14 @@ async function maybeSeed(colName, sampleDocs) {
 }
 
 function sampleVenues() {
-  // インバウンド観光客に人気の道頓堀エリアの実在店舗をサンプルとして採用（営業時間は目安）。
+  // インバウンド観光客に人気の道頓堀・梅田エリアの実在店舗をサンプルとして採用（営業時間は目安）。
   const allDays = [true,true,true,true,true,true,true];
   return [
     { name:"一蘭 道頓堀店", city:"大阪市", time:"25:00", genre:"ラーメン", days:allDays, isSample:true, updatedAt:new Date().toISOString() },
-    { name:"金龍ラーメン 道頓堀店", city:"大阪市", time:"26:00", genre:"ラーメン", days:allDays, isSample:true, updatedAt:new Date().toISOString() },
     { name:"蟹道楽 道頓堀本店", city:"大阪市", time:"23:00", genre:"蟹料理", days:allDays, isSample:true, updatedAt:new Date().toISOString() },
     { name:"串かつだるま 道頓堀店", city:"大阪市", time:"23:00", genre:"串カツ", days:allDays, isSample:true, updatedAt:new Date().toISOString() },
-    { name:"千房 道頓堀本店", city:"大阪市", time:"22:30", genre:"お好み焼き", days:allDays, isSample:true, updatedAt:new Date().toISOString() },
+    { name:"551蓬莱 阪急梅田本店", city:"大阪市", time:"21:00", genre:"中華まん", days:allDays, isSample:true, updatedAt:new Date().toISOString() },
+    { name:"がんこ 梅田茶屋町店", city:"大阪市", time:"23:00", genre:"寿司・和食", days:allDays, isSample:true, updatedAt:new Date().toISOString() },
   ];
 }
 function sampleTrains() {
