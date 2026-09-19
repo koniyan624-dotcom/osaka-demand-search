@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700;900&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 <style>
   :root {
     --bg: #f3f4f7;
@@ -173,6 +174,31 @@
   .card.status-red { border-left-color: var(--red); background: linear-gradient(0deg, var(--red-bg), var(--red-bg)), var(--panel); }
   .card.status-orange { border-left-color: var(--orange); background: linear-gradient(0deg, var(--orange-bg), var(--orange-bg)), var(--panel); }
   .card.status-green { border-left-color: var(--green); background: var(--panel); }
+  .card.area-card { cursor: pointer; }
+
+  .hotel-detail {
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+    padding: 4px 4px 10px 14px;
+    margin-top: -4px;
+    border-left: 4px solid var(--border);
+    border-radius: 0 0 10px 10px;
+  }
+  .hotel-detail.open { display: flex; }
+  .hotel-row {
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+  }
+  .hotel-row-name a { color: var(--accent); text-decoration: none; font-weight: 600; font-size: 13.5px; }
+  .hotel-row-name a:hover { text-decoration: underline; }
+  .hotel-row-sub { font-size: 12px; color: var(--text-dim); white-space: nowrap; }
 
   .card-main { min-width: 0; }
   .card-title { font-weight: 700; font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -321,6 +347,24 @@
     font-size: 12.5px;
     display: none;
   }
+  #mapView {
+    height: 60vh;
+    min-height: 360px;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .map-pin-label {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 2px 6px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+    box-shadow: var(--shadow);
+  }
 </style>
 </head>
 <body>
@@ -335,6 +379,7 @@
     <button class="tabbtn" data-tab="events">イベント</button>
     <button class="tabbtn" data-tab="venues">飲食店</button>
     <button class="tabbtn" data-tab="hotels">ホテル</button>
+    <button class="tabbtn" data-tab="map">マップ</button>
   </div>
 </header>
 
@@ -486,11 +531,22 @@
       <span class="hint">今夜1泊・空室のあるホテルが少ないエリアほど混雑の目安</span>
     </div>
     <div class="card-list" id="hotelList"></div>
-    <p class="hint" style="margin-top:14px;">楽天トラベルの空室検索結果に基づく参考値です。エリア内の全ホテル数は取得できないため、正確な稼働率ではなく「空室ありホテルの件数」を目安として表示しています。</p>
+    <p class="hint" style="margin-top:14px;">楽天トラベルの空室検索結果に基づく参考値です。エリア内の全ホテル数は取得できないため、正確な稼働率ではなく「空室ありホテルの件数」を目安として表示しています。エリアをタップすると空室のあるホテルを個別に（最安値順・最大30件）表示します。</p>
+  </section>
+
+  <!-- マップタブ -->
+  <section class="panel" id="panel-map">
+    <div class="toolbar">
+      <span class="hint">飲食店・イベントを地図上にピン表示（緑→オレンジ→赤の順で切迫）</span>
+      <button class="ghost-btn" id="mapReload" style="color:var(--accent);border-color:var(--accent);">再読み込み</button>
+    </div>
+    <div id="mapView"></div>
+    <p class="hint" style="margin-top:10px;">位置情報はOpenStreetMapで店舗名・会場名から自動検索した目安です。実際の場所と多少ずれる場合があります。</p>
   </section>
 
 </main>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
@@ -793,21 +849,38 @@ function hotelStatusClass(count) {
   return "status-green";
 }
 
-async function fetchVacantHotelCount(area, retrying) {
+async function fetchVacantHotels(area, retrying) {
   const today = dateStrOf(new Date());
   const tomorrow = addDaysToStr(today, 1);
-  const url = `https://openapi.rakuten.co.jp/engine/api/Travel/VacantHotelSearch/20170426?format=json&applicationId=${RAKUTEN_APP_ID}&accessKey=${RAKUTEN_ACCESS_KEY}&latitude=${area.lat}&longitude=${area.lng}&searchRadius=2&datumType=1&checkinDate=${today}&checkoutDate=${tomorrow}&adultNum=2&hits=1`;
+  const url = `https://openapi.rakuten.co.jp/engine/api/Travel/VacantHotelSearch/20170426?format=json&applicationId=${RAKUTEN_APP_ID}&accessKey=${RAKUTEN_ACCESS_KEY}&latitude=${area.lat}&longitude=${area.lng}&searchRadius=2&datumType=1&checkinDate=${today}&checkoutDate=${tomorrow}&adultNum=2&hits=30&sort=+roomCharge`;
   const res = await fetch(url);
   if (res.status === 429 && !retrying) {
     // レート制限。少し待って1回だけ再試行する。
     await new Promise((r) => setTimeout(r, 2000));
-    return fetchVacantHotelCount(area, true);
+    return fetchVacantHotels(area, true);
   }
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
   if (data.error) throw new Error(data.error_description || data.error);
-  return data.pagingInfo?.recordCount ?? 0;
+  const count = data.pagingInfo?.recordCount ?? 0;
+  const hotels = (data.hotels || []).map((h) => {
+    const basicEntry = (h.hotel || []).find((x) => x.hotelBasicInfo);
+    const basic = basicEntry ? basicEntry.hotelBasicInfo : {};
+    return {
+      name: basic.hotelName || "名称不明",
+      url: basic.hotelInformationUrl || "",
+      minCharge: basic.hotelMinCharge || null,
+      address: basic.address2 || "",
+    };
+  });
+  return { count, hotels };
 }
+
+function toggleHotelDetail(idx) {
+  const el = document.getElementById(`hotelDetail-${idx}`);
+  if (el) el.classList.toggle("open");
+}
+window.toggleHotelDetail = toggleHotelDetail;
 
 async function renderHotels(force) {
   const el = document.getElementById("hotelList");
@@ -818,28 +891,40 @@ async function renderHotels(force) {
   const results = [];
   for (const area of HOTEL_AREAS) {
     try {
-      const count = await fetchVacantHotelCount(area);
-      results.push({ area, count });
+      const { count, hotels } = await fetchVacantHotels(area);
+      results.push({ area, count, hotels });
     } catch (err) {
       console.error(`${area.name}の取得に失敗:`, err);
-      results.push({ area, count: null });
+      results.push({ area, count: null, hotels: [] });
     }
     await new Promise((r) => setTimeout(r, 1100));
   }
   hotelsLastFetched = Date.now();
   hotelsLoading = false;
   results.sort((a, b) => (a.count ?? 999) - (b.count ?? 999));
-  el.innerHTML = results.map(({ area, count }) => `
-    <div class="card ${count === null ? "" : hotelStatusClass(count)}">
+  el.innerHTML = results.map(({ area, count, hotels }, idx) => `
+    <div class="card area-card ${count === null ? "" : hotelStatusClass(count)}" onclick="toggleHotelDetail(${idx})">
       <div class="card-main">
         <div class="card-title">${escapeHtml(area.name)}</div>
         <div class="card-sub">
-          <a href="${mapUrlFor(area.name, "大阪")}" target="_blank" rel="noopener noreferrer" class="chip" style="color:var(--accent);">地図</a>
+          <span class="chip">タップでホテル別を表示</span>
+          <a href="${mapUrlFor(area.name, "大阪")}" target="_blank" rel="noopener noreferrer" class="chip" style="color:var(--accent);" onclick="event.stopPropagation();">地図</a>
         </div>
       </div>
       <div class="card-right">
         <div class="remain">${count === null ? "取得失敗" : `空室あり ${count}件`}</div>
       </div>
+    </div>
+    <div class="hotel-detail" id="hotelDetail-${idx}">
+      ${hotels.length ? hotels.map((h) => `
+        <div class="hotel-row">
+          <div class="hotel-row-name">
+            ${h.url ? `<a href="${escapeHtml(h.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(h.name)}</a>` : escapeHtml(h.name)}
+            ${h.address ? `<div style="font-size:11px;color:var(--text-dim);font-weight:normal;margin-top:2px;">${escapeHtml(h.address)}</div>` : ""}
+          </div>
+          <div class="hotel-row-sub">${h.minCharge ? `¥${Number(h.minCharge).toLocaleString()}〜` : "料金不明"}</div>
+        </div>
+      `).join("") : `<div class="empty">ホテル情報を取得できませんでした</div>`}
     </div>
   `).join("");
 }
