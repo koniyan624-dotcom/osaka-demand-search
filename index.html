@@ -331,9 +331,9 @@
     <div class="clock mono" id="clock">--:--:--</div>
   </div>
   <div class="tabs">
-    <button class="tabbtn active" data-tab="venues">飲食店</button>
-    <button class="tabbtn" data-tab="trains">鉄道</button>
+    <button class="tabbtn active" data-tab="trains">鉄道</button>
     <button class="tabbtn" data-tab="events">イベント</button>
+    <button class="tabbtn" data-tab="venues">飲食店</button>
   </div>
 </header>
 
@@ -344,7 +344,7 @@
 <main>
 
   <!-- 飲食店タブ -->
-  <section class="panel active" id="panel-venues">
+  <section class="panel" id="panel-venues">
     <div class="toolbar">
       <span class="hint">閉店が近い順に表示（本日営業分）</span>
       <button class="ghost-btn" id="clearVenueSamples">サンプルを削除する</button>
@@ -393,7 +393,7 @@
   </section>
 
   <!-- 鉄道タブ -->
-  <section class="panel" id="panel-trains">
+  <section class="panel active" id="panel-trains">
     <div class="toolbar">
       <span class="hint">遅延・見合わせ路線が上に表示されます</span>
     </div>
