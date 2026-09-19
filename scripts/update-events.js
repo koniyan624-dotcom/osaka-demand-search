@@ -188,6 +188,101 @@ async function fetchNagaiStadium() {
   return events;
 }
 
+// ---------- パナソニック スタジアム吹田（ガンバ大阪ホームゲーム） ----------
+async function fetchPanasonicStadium() {
+  const res = await fetch("https://www.gamba-osaka.net/game/");
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const html = await res.text();
+  const now = new Date();
+  const chunks = html.split('<div class="game_schedule_list_detail_sche">').slice(1);
+  const events = [];
+  for (const chunk of chunks) {
+    const staM = /game_schedule_list_detail_sche_sta">＠パナスタ</.exec(chunk);
+    if (!staM) continue; // アウェー戦は除外
+    const dateM = /game_schedule_list_detail_sche_date"><span>(\d{1,2})\.(\d{1,2})</.exec(chunk);
+    const timeM = /game_schedule_list_detail_sche_time">(\d{1,2}:\d{2})</.exec(chunk);
+    if (!dateM || !timeM) continue;
+    const month = Number(dateM[1]);
+    let year = now.getFullYear();
+    if (month < now.getMonth() + 1 - 2) year += 1; // 年末年始をまたぐケースの簡易補正
+    events.push({
+      venue: "パナソニック スタジアム吹田",
+      title: "ガンバ大阪ホームゲーム",
+      date: `${year}-${pad2(month)}-${pad2(Number(dateM[2]))}`,
+      endTime: estimateEndTime(timeM[1], 2),
+      city: "吹田市",
+      genre: "スポーツ",
+    });
+  }
+  return events;
+}
+
+// ---------- 東大阪市花園ラグビー場（花園近鉄ライナーズ ホストゲーム） ----------
+async function fetchHanazonoRugby() {
+  const res = await fetch("https://hanazono-liners.jp/shiaiyotei-kekka/");
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const html = await res.text();
+  const chunks = html.split('<li class="c-match-result-post-item').slice(1);
+  const events = [];
+  for (const chunk of chunks) {
+    const venueM = /c-match-result-post-item__venue">([^<]*)</.exec(chunk);
+    if (!venueM || !venueM[1].includes("花園")) continue;
+    const dateM = /c-match-result-post-item__date--date">\s*(\d{4})\.(\d{1,2})\.(\d{1,2})/.exec(chunk);
+    const timeM = /KO\s*(\d{1,2}:\d{2})/.exec(chunk);
+    if (!dateM || !timeM) continue;
+    events.push({
+      venue: "東大阪市花園ラグビー場",
+      title: "花園近鉄ライナーズ ホストゲーム",
+      date: `${dateM[1]}-${pad2(Number(dateM[2]))}-${pad2(Number(dateM[3]))}`,
+      endTime: estimateEndTime(timeM[1], 2),
+      city: "東大阪市",
+      genre: "スポーツ",
+    });
+  }
+  return events;
+}
+
+// ---------- オリックス劇場 ----------
+async function fetchOrixTheaterMonth(year, month) {
+  const url = `https://www.orixtheater.jp/update/event/${year}/${year}${month}event.json`;
+  const res = await fetch(url);
+  if (!res.ok) return [];
+  const list = await res.json();
+  const events = [];
+  for (const item of list) {
+    if (!item.detail_flg || !item.event_date_detail) continue;
+    const title = decodeEntities((item.event_title || "").trim());
+    for (const seg of item.event_date_detail.split("<br />")) {
+      const dateM = /(\d{4})年(\d{1,2})月(\d{1,2})日/.exec(seg);
+      if (!dateM) continue;
+      const times = [...seg.matchAll(/(\d{1,2}):(\d{2})(?=開演)/g)];
+      if (times.length === 0) continue;
+      const last = times[times.length - 1];
+      events.push({
+        venue: "オリックス劇場",
+        title,
+        date: `${dateM[1]}-${pad2(Number(dateM[2]))}-${pad2(Number(dateM[3]))}`,
+        endTime: estimateEndTime(`${last[1]}:${last[2]}`),
+        city: "大阪市",
+        genre: "コンサート",
+      });
+    }
+  }
+  return events;
+}
+
+async function fetchOrixTheater() {
+  const now = new Date();
+  const y1 = now.getFullYear();
+  const m1 = now.getMonth() + 1;
+  const next = new Date(y1, m1, 1); // m1は1始まりなので+1不要でnew Date()に渡すと翌月になる
+  const [a, b] = await Promise.all([
+    fetchOrixTheaterMonth(y1, m1),
+    fetchOrixTheaterMonth(next.getFullYear(), next.getMonth() + 1),
+  ]);
+  return [...a, ...b];
+}
+
 async function main() {
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
@@ -199,6 +294,9 @@ async function main() {
     ["なんばHatch", fetchNambaHatch],
     ["Zepp Osaka Bayside", fetchZeppOsakaBayside],
     ["長居スタジアム", fetchNagaiStadium],
+    ["パナソニック スタジアム吹田", fetchPanasonicStadium],
+    ["東大阪市花園ラグビー場", fetchHanazonoRugby],
+    ["オリックス劇場", fetchOrixTheater],
   ];
 
   for (const [label, fetcher] of fetchers) {
