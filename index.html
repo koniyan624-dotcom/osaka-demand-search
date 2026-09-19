@@ -634,6 +634,10 @@ function escapeHtml(s) {
   return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 }
 
+function mapUrlFor(name, city) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${name} ${city || ""}`.trim())}`;
+}
+
 function renderVenues() {
   const now = new Date();
   const rows = venues
@@ -654,6 +658,7 @@ function renderVenues() {
           ${v.city ? `<span class="chip">${escapeHtml(v.city)}</span>` : ""}
           ${v.genre ? `<span class="chip">${escapeHtml(v.genre)}</span>` : ""}
           <span class="chip mono">閉店 ${escapeHtml(v.time)}</span>
+          <a href="${mapUrlFor(v.name, v.city)}" target="_blank" rel="noopener noreferrer" class="chip" style="color:var(--accent);">地図</a>
         </div>
         <button class="del-btn" data-del-venue="${v.id}">削除</button>
       </div>
