@@ -35,6 +35,18 @@ function extractReadableText(obj) {
   return parts.length ? parts.join(" ") : JSON.stringify(obj);
 }
 
+// 各社の公式運行情報ページ（遅延・見合わせ時に「詳細」リンクとして表示する）。
+const SOURCE_URLS = {
+  jr: "https://trafficinfo.westjr.co.jp/kinki.html",
+  hankyu: "https://www.hankyu.co.jp/railinfo/index.html",
+  hanshin: "https://apl.hanshin.co.jp/5/html/index.html",
+  kintetsu: "https://www.kintetsu.co.jp/",
+  nankai: "https://www.nankai.co.jp/traffic.html",
+  osakaMetro: "https://subway.osakametro.co.jp/guide/subway_information.php",
+  osakaMonorail: "https://www.osaka-monorail.co.jp/",
+  shinkansen: "https://traininfo.jr-central.co.jp/shinkansen/sp/ja/index.html",
+};
+
 // ---------- JR西日本（非公式 train-guide API） ----------
 const JR_LINE_MAP = {
   kyoto: "JR京都線",
@@ -58,7 +70,7 @@ async function fetchJR() {
       ? `${info.section.from ?? ""}〜${info.section.to ?? ""}`
       : "";
     const detail = info ? cleanDetailText(`${section} ${info.status ?? ""} ${info.cause ?? ""}`) : null;
-    return { name, status: classifyIssueText(text, !!info), detail };
+    return { name, status: classifyIssueText(text, !!info), detail, sourceUrl: info ? (info.url || SOURCE_URLS.jr) : null };
   });
 }
 
@@ -77,7 +89,7 @@ async function fetchHankyu() {
     if (!mapped) continue;
     const statusText = m[2].trim();
     const hasIssue = !statusText.includes("平常");
-    results.push({ name: mapped, status: classifyIssueText(statusText, hasIssue), detail: hasIssue ? cleanDetailText(statusText) : null });
+    results.push({ name: mapped, status: classifyIssueText(statusText, hasIssue), detail: hasIssue ? cleanDetailText(statusText) : null, sourceUrl: hasIssue ? SOURCE_URLS.hankyu : null });
   }
   return results;
 }
@@ -91,7 +103,7 @@ async function fetchHanshin() {
   const text = infList.map((x) => JSON.stringify(x)).join(" ");
   const hasIssue = infList.length > 0;
   const detail = hasIssue ? cleanDetailText(infList.map(extractReadableText).join(" / ")) : null;
-  return [{ name: "阪神本線", status: classifyIssueText(text, hasIssue), detail }];
+  return [{ name: "阪神本線", status: classifyIssueText(text, hasIssue), detail, sourceUrl: hasIssue ? SOURCE_URLS.hanshin : null }];
 }
 
 // ---------- 近畿日本鉄道（ナビタイム提供の非公式API） ----------
@@ -107,7 +119,8 @@ async function fetchKintetsu() {
     if (!mapped) continue;
     const text = line.conditions?.[0]?._condition_text ?? "";
     const hasIssue = text !== "" && !text.includes("平常");
-    results.push({ name: mapped, status: classifyIssueText(text, hasIssue), detail: hasIssue ? cleanDetailText(text) : null });
+    const lineUrl = line.link_urls ? Object.values(line.link_urls)[0] : null;
+    results.push({ name: mapped, status: classifyIssueText(text, hasIssue), detail: hasIssue ? cleanDetailText(text) : null, sourceUrl: hasIssue ? (lineUrl || SOURCE_URLS.kintetsu) : null });
   }
   return results;
 }
@@ -127,7 +140,7 @@ async function fetchNankai() {
     const mapped = NANKAI_TITLE_MAP[label];
     if (!mapped) continue;
     const hasIssue = !!n.delay;
-    results.push({ name: mapped, status: classifyIssueText(n.content ?? "", hasIssue), detail: hasIssue ? cleanDetailText(n.content) : null });
+    results.push({ name: mapped, status: classifyIssueText(n.content ?? "", hasIssue), detail: hasIssue ? cleanDetailText(n.content) : null, sourceUrl: hasIssue ? SOURCE_URLS.nankai : null });
   }
   return results;
 }
@@ -165,7 +178,7 @@ async function fetchOsakaMetro() {
     const text = relevant.map((x) => JSON.stringify(x)).join(" ");
     const hasIssue = relevant.length > 0;
     const detail = hasIssue ? cleanDetailText(relevant.map(extractReadableText).join(" / ")) : null;
-    return { name: mapped, status: classifyIssueText(text, hasIssue), detail };
+    return { name: mapped, status: classifyIssueText(text, hasIssue), detail, sourceUrl: hasIssue ? SOURCE_URLS.osakaMetro : null };
   });
 }
 
@@ -177,7 +190,7 @@ async function fetchOsakaMonorail() {
   const m = /operationStatus__status">\s*<span>([^<]*)<\/span>/.exec(html);
   const text = m ? m[1].trim() : "";
   const hasIssue = text !== "" && !text.includes("平常");
-  return [{ name: "大阪モノレール", status: classifyIssueText(text, hasIssue), detail: hasIssue ? cleanDetailText(text) : null }];
+  return [{ name: "大阪モノレール", status: classifyIssueText(text, hasIssue), detail: hasIssue ? cleanDetailText(text) : null, sourceUrl: hasIssue ? SOURCE_URLS.osakaMonorail : null }];
 }
 
 // ---------- 新幹線（山陽・東海道、JR東海公式サイト） ----------
@@ -190,7 +203,7 @@ async function fetchShinkansen() {
   const noticeText = noticeList.map((n) => `${n.noticeTitle ?? ""}${n.contents ?? ""}`).join(" ");
   const text = `${message} ${noticeText}`;
   const hasIssue = message.trim() !== "";
-  return [{ name: "新幹線(山陽・東海道)", status: classifyIssueText(text, hasIssue), detail: hasIssue ? cleanDetailText(message) : null }];
+  return [{ name: "新幹線(山陽・東海道)", status: classifyIssueText(text, hasIssue), detail: hasIssue ? cleanDetailText(message) : null, sourceUrl: hasIssue ? SOURCE_URLS.shinkansen : null }];
 }
 
 async function main() {
@@ -219,13 +232,13 @@ async function main() {
       console.error(`${label}の取得に失敗（今回はスキップ）: ${err.message}`);
       continue;
     }
-    for (const { name, status, detail } of results) {
+    for (const { name, status, detail, sourceUrl } of results) {
       const ref = refByName.get(name);
       if (!ref) {
         console.log(`スキップ（未登録）: ${name}`);
         continue;
       }
-      await updateDoc(ref, { status, detail: detail ?? null, source: "auto", updatedAt: new Date().toISOString() });
+      await updateDoc(ref, { status, detail: detail ?? null, sourceUrl: sourceUrl ?? null, source: "auto", updatedAt: new Date().toISOString() });
       console.log(`${name}: ${status}${detail ? ` (${detail})` : ""}`);
     }
   }
