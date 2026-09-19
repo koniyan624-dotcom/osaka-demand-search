@@ -443,6 +443,7 @@
             <option value="パナソニック スタジアム吹田">
             <option value="東大阪市花園ラグビー場">
             <option value="堺市産業振興センター">
+            <option value="長居スタジアム">
           </datalist>
         </div>
         <div>
@@ -714,11 +715,11 @@ function renderEvents() {
   el.innerHTML = rows.map(({ev, diff}) => `
     <div class="card ${eventStatusClass(diff)}">
       <div class="card-main">
-        <div class="card-title">${escapeHtml(ev.venue)}${ev.title ? " ｜ " + escapeHtml(ev.title) : ""}</div>
+        <div class="card-title">${escapeHtml(ev.venue)}${ev.title ? " ｜ " + escapeHtml(ev.title) : ""}${ev.source === "auto" ? '<span class="chip" style="margin-left:6px;">自動</span>' : ""}</div>
         <div class="card-sub">
           ${ev.city ? `<span class="chip">${escapeHtml(ev.city)}</span>` : ""}
           ${ev.genre ? `<span class="chip">${escapeHtml(ev.genre)}</span>` : ""}
-          <span class="chip mono">${escapeHtml(ev.date)} 終演 ${escapeHtml(ev.endTime)}</span>
+          <span class="chip mono">${escapeHtml(ev.date)} 終演${ev.source === "auto" ? "予定(目安)" : ""} ${escapeHtml(ev.endTime)}</span>
         </div>
         <button class="del-btn" data-del-event="${ev.id}">削除</button>
       </div>

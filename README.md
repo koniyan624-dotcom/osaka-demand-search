@@ -99,14 +99,38 @@ GitHub Actionsが10分おきに各鉄道会社の運行情報を取得し、自�
 - GitHubの仕様上、リポジトリに60日間pushがないと定期実行（スケジュール）が自動停止します。これを防ぐため [.github/workflows/keep-alive.yml](.github/workflows/keep-alive.yml) が毎月1日に自動で小さなコミットを積み、60日を超える前に必ずpushが発生するようにしています（手動対応は基本的に不要）
 - 自動更新の路線名の横には「自動」ラベルが表示されます。手動でボタンを押すとその場で上書きされますが、次の自動実行（最大10分後）で最新の公式情報に戻ります
 
+## イベントの自動更新（主要6会場）
+
+GitHub Actionsが3時間おきに各会場の公式サイトから近日の公演スケジュールを取得し、自動で登録します。
+
+| 会場 | 取得元 |
+|---|---|
+| 大阪城ホール | 公式サイト イベント一覧 |
+| 京セラドーム大阪 | 公式サイト スケジュール |
+| フェスティバルホール | 公式サイト 公演リスト（当月分のみ） |
+| なんばHatch | 公式サイト スケジュール（当月分のみ） |
+| Zepp Osaka Bayside | 公式サイト スケジュール |
+| 長居スタジアム | セレッソ大阪 公式サイトの試合日程（ホームゲームのみ） |
+
+仕組みは [scripts/update-events.js](scripts/update-events.js) と [.github/workflows/update-events.yml](.github/workflows/update-events.yml) です。
+
+**重要な注意点**
+
+- **会場公式サイトは「終演」時刻を公開していません（開演時刻のみ）。** そのため終演予定時刻は「開演＋おおむね2.5時間（京セラドームの野球は3.5時間、長居スタジアムは2時間）」で自動推定した目安です。実際の終演時刻とはずれる可能性があります
+- 自動登録されたイベントには「自動」ラベルと「終演予定(目安)」という表記が付き、手動入力（確定時刻）と区別できます
+- グランキューブ大阪・オリックス劇場・パナソニック スタジアム吹田・東大阪市花園ラグビー場・堺市産業振興センターは、公式サイトに開演時刻が掲載されていない、またはJavaScriptで描画される複雑な構成のため未対応です。手動入力で運用してください
+- いずれも各会場公式サイトのHTML構造に依存した非公式スクレイピングのため、サイトのリニューアル等で予告なく取得できなくなる可能性があります
+
 ## ファイル構成
 
 ```
 index.html          画面本体（HTML+CSS+JS）
 firebase-config.js   Firebase接続設定（要入力）
 firestore.rules      Firestoreセキュリティルール
-scripts/update-train-status.js       JR運行情報の自動取得スクリプト
+scripts/update-train-status.js       運行情報の自動取得スクリプト
+scripts/update-events.js             イベントスケジュールの自動取得スクリプト
 .github/workflows/update-train-status.yml  10分おきの自動実行設定
+.github/workflows/update-events.yml        3時間おきの自動実行設定
 README.md            このファイル
 HANDOFF.md           経緯・意思決定の引き継ぎメモ
 ```
