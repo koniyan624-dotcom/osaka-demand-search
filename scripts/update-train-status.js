@@ -139,6 +139,28 @@ async function fetchOsakaMetro() {
   });
 }
 
+// ---------- 大阪モノレール（公式サイトのトップページに直接記載） ----------
+async function fetchOsakaMonorail() {
+  const res = await fetch("https://www.osaka-monorail.co.jp/");
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const html = await res.text();
+  const m = /operationStatus__status">\s*<span>([^<]*)<\/span>/.exec(html);
+  const text = m ? m[1].trim() : "";
+  return [{ name: "大阪モノレール", status: classifyIssueText(text, text !== "" && !text.includes("平常")) }];
+}
+
+// ---------- 新幹線（山陽・東海道、JR東海公式サイト） ----------
+async function fetchShinkansen() {
+  const res = await fetch("https://traininfo.jr-central.co.jp/shinkansen/var/train_info/ti01_ja.json");
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  const message = data?.screen?.message ?? "";
+  const noticeList = Array.isArray(data?.screen?.noticeList) ? data.screen.noticeList : [];
+  const noticeText = noticeList.map((n) => `${n.noticeTitle ?? ""}${n.contents ?? ""}`).join(" ");
+  const text = `${message} ${noticeText}`;
+  return [{ name: "新幹線(山陽・東海道)", status: classifyIssueText(text, message.trim() !== "") }];
+}
+
 async function main() {
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
@@ -153,6 +175,8 @@ async function main() {
     ["近畿日本鉄道", fetchKintetsu],
     ["南海電気鉄道", fetchNankai],
     ["Osaka Metro", fetchOsakaMetro],
+    ["大阪モノレール", fetchOsakaMonorail],
+    ["新幹線(JR東海)", fetchShinkansen],
   ];
 
   for (const [label, fetcher] of fetchers) {
