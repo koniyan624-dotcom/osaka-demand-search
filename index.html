@@ -397,6 +397,12 @@
     </div>
     <div class="card-list" id="venueList"></div>
     <details class="add-panel">
+      <summary>ℹ️ 自動更新される施設</summary>
+      <div class="add-form" style="padding-top:10px;">
+        <p class="hint" style="margin:0;">USJ（ユニバーサル・スタジオ・ジャパン）は公式サイトの営業時間カレンダーから本日の閉園時刻を自動取得します。それ以外の店舗はサンプルまたは手動登録です。</p>
+      </div>
+    </details>
+    <details class="add-panel">
       <summary>＋ 店舗を追加</summary>
       <form class="add-form" id="venueForm">
         <div>
@@ -752,7 +758,7 @@ function renderVenues() {
   el.innerHTML = rows.map(({v, diff}) => `
     <div class="card ${venueStatusClass(diff)}">
       <div class="card-main">
-        <div class="card-title">${escapeHtml(v.name)}</div>
+        <div class="card-title">${escapeHtml(v.name)}${v.source === "auto" ? '<span class="chip" style="margin-left:6px;">自動</span>' : ""}</div>
         <div class="card-sub">
           ${v.city ? `<span class="chip">${escapeHtml(v.city)}</span>` : ""}
           ${v.genre ? `<span class="chip">${escapeHtml(v.genre)}</span>` : ""}

@@ -125,6 +125,14 @@ GitHub Actionsが3時間おきに各会場の公式サイトから近日の公�
 - **グランキューブ大阪・堺市産業振興センターは自動化していません。** どちらも公式サイトに開演時刻はおろか個々の公演の一般向けスケジュール自体が公開されていない（施設予約ページのみ）ため、自動取得できるデータが存在しません。手動入力で運用してください
 - いずれも各会場公式サイトのHTML構造に依存した非公式スクレイピングのため、サイトのリニューアル等で予告なく取得できなくなる可能性があります
 
+## USJの自動更新（本日の閉園時刻）
+
+GitHub Actionsが3時間おきにUSJ公式サイトの営業時間カレンダーから本日の閉園時刻を取得し、飲食店タブに「USJ」として自動登録します。
+
+USJの営業時間ページはAngular製のSPAで、時刻データが通常のHTMLに含まれず単純なfetchでは取得できないため、他の自動更新（fetchによるHTML/JSON取得）とは異なり[Puppeteer](https://pptr.dev/)でヘッドレスブラウザを起動し、実際にページを描画してから読み取る方式にしています。そのぶんGitHub Actionsの実行時間・負荷は他のスクリプトより大きくなります。
+
+仕組みは [scripts/update-usj.js](scripts/update-usj.js) と [.github/workflows/update-usj.yml](.github/workflows/update-usj.yml) です。
+
 ## ファイル構成
 
 ```
@@ -133,8 +141,10 @@ firebase-config.js   Firebase接続設定（要入力）
 firestore.rules      Firestoreセキュリティルール
 scripts/update-train-status.js       運行情報の自動取得スクリプト
 scripts/update-events.js             イベントスケジュールの自動取得スクリプト
+scripts/update-usj.js                USJ本日の閉園時刻の自動取得スクリプト（Puppeteer使用）
 .github/workflows/update-train-status.yml  10分おきの自動実行設定
 .github/workflows/update-events.yml        3時間おきの自動実行設定
+.github/workflows/update-usj.yml           3時間おきの自動実行設定
 README.md            このファイル
 HANDOFF.md           経緯・意思決定の引き継ぎメモ
 ```

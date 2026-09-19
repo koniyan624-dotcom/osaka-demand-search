@@ -4,6 +4,7 @@
   "type": "module",
   "description": "GitHub Actions から鉄道運行情報を自動更新するためのスクリプト実行用。画面本体(index.html)はビルド不要のバニラJSです。",
   "dependencies": {
-    "firebase": "^10.14.1"
+    "firebase": "^10.14.1",
+    "puppeteer": "^25.11.0"
   }
 }
