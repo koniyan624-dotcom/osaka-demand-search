@@ -528,10 +528,10 @@
   <!-- ホテルタブ -->
   <section class="panel" id="panel-hotels">
     <div class="toolbar">
-      <span class="hint">今夜1泊・★が多いエリアほど主要ホテルが埋まっていて混雑の目安</span>
+      <span class="hint">★が多いエリアほど今夜のホテル需要が高い推定</span>
     </div>
     <div class="card-list" id="hotelList"></div>
-    <p class="hint" style="margin-top:14px;">主要エリアは各地域の主要ホテル数軒（楽天トラベル掲載分）が実際に満室かどうかを判定し、満室率を★で表示しています（★5=主要ホテルが全て満室）。東大阪・豊中は主要ホテルが少ないため、近隣の空室ありホテル件数を目安として表示しています。エリアをタップするとホテル別の内訳を表示します。</p>
+    <p class="hint" style="margin-top:14px;">個別ホテルの実際の空室数・空室率は楽天・じゃらん等どの公開データにも存在しないため取得できません。このため参照アプリと同様に、曜日・季節（観光繁忙期）・そのエリアで本日開催中のイベント件数から推定した「需要度」を★で表示しています。実際の空室状況とは異なる場合があります。エリアをタップすると内訳（計算根拠）と主要ホテル名を表示します。</p>
   </section>
 
   <!-- マップタブ -->
@@ -824,134 +824,48 @@ function showConnWarning() {
   document.getElementById("connWarning").style.display = "block";
 }
 
-// ---------- ホテル空室状況（楽天トラベル空室検索API） ----------
-// applicationId/accessKeyはRakuten側で「Web Application」種別・許可ドメインを
-// osaka-demand-search.pages.dev に限定して発行したもの。Refererチェックにより
-// 登録ドメイン以外からは利用できないため、Firebaseのapikey同様クライアント
-// コードに含めて問題ない想定。
-const RAKUTEN_APP_ID = "b9bd1ef7-e3d6-4e21-9cfb-d882b5cf9d66";
-const RAKUTEN_ACCESS_KEY = "pk_qmZ2scMXiiPHHhzfyJeWgTxzsEWIA8ziTkQ2PxcQ3r0";
-// benchmarks: 各エリアの主要ホテル（楽天トラベルのhotelNo）。
-// 「空室のあるホテル数」ではなく「主要ホテルのうち何軒が満室か」を満室率として星表示するための固定リスト。
-// 東大阪・豊中はエリア内に有名チェーンホテルがほぼ無いため、少数のホテル or ベンチマーク無し(簡易表示)としている。
+// ---------- ホテル推定需要（曜日・季節・近隣イベントからの推定モデル） ----------
+// 個別ホテルの実際の空室数・空室率は楽天・じゃらん・Yahoo等どの公開APIにも存在しないため
+// （楽天は空室の有無のみ、じゃらんは2020年に新規登録終了、Yahooに公開APIなし、を確認済み）、
+// 参照アプリ「クラスターサーチ」の「ホテル需要」欄と同様に、曜日・季節・近隣イベントの
+// 有無から推定した「需要度」を★で表示する。実際の空室状況とは異なる場合がある。
 const HOTEL_AREAS = [
-  { name: "梅田・キタ", lat: 34.7024854, lng: 135.4937619, benchmarks: [
-    { hotelNo: 1731, name: "ホテルグランヴィア大阪" },
-    { hotelNo: 103, name: "リーガロイヤルホテル大阪" },
-    { hotelNo: 1517, name: "ホテル阪急インターナショナル" },
-    { hotelNo: 4906, name: "ホテルモントレ大阪" },
-    { hotelNo: 5902, name: "ホテル阪神大阪" },
-  ] },
-  { name: "難波・ミナミ", lat: 34.6627134, lng: 135.5013712, benchmarks: [
-    { hotelNo: 144947, name: "大阪マリオット都ホテル" },
-    { hotelNo: 181486, name: "W大阪" },
-    { hotelNo: 76887, name: "ホテルモントレ グラスミア大阪" },
-    { hotelNo: 178414, name: "ホテルロイヤルクラシック大阪" },
-    { hotelNo: 1145, name: "都シティ 大阪天王寺" },
-  ] },
-  { name: "新大阪", lat: 34.7334, lng: 135.5002, benchmarks: [
-    { hotelNo: 176602, name: "からくさホテルグランデ新大阪タワー" },
-    { hotelNo: 188051, name: "新大阪ステーションホテル" },
-    { hotelNo: 149338, name: "コートヤード・バイ・マリオット新大阪ステーション" },
-    { hotelNo: 137826, name: "レム新大阪" },
-    { hotelNo: 182440, name: "アパホテル〈新大阪駅前タワー〉" },
-  ] },
-  { name: "堺", lat: 34.5732556, lng: 135.4830127, benchmarks: [
-    { hotelNo: 192980, name: "ドーセット バイ アゴーラ 大阪堺" },
-    { hotelNo: 105, name: "ホテル アゴーラ リージェンシー 大阪堺" },
-    { hotelNo: 38650, name: "コンフォートホテル堺" },
-    { hotelNo: 80563, name: "アパホテル〈堺駅前〉" },
-    { hotelNo: 5331, name: "大阪ベイプラザホテル" },
-  ] },
-  { name: "東大阪(布施)", lat: 34.6784, lng: 135.6009, benchmarks: [
-    { hotelNo: 1590, name: "リッチモンドホテル東大阪" },
-    { hotelNo: 1394, name: "U・コミュニティホテル" },
-  ] },
-  { name: "吹田(江坂)", lat: 34.7602, lng: 135.5158, benchmarks: [
-    { hotelNo: 527, name: "新大阪江坂東急REIホテル" },
-    { hotelNo: 168151, name: "CANDEO HOTELS大阪岸辺" },
-    { hotelNo: 950, name: "ホテルクライトン江坂" },
-    { hotelNo: 181386, name: "ホリデイ・イン&スイーツ新大阪" },
-    { hotelNo: 11006, name: "ヴィアイン新大阪ウエスト" },
-  ] },
-  { name: "豊中", lat: 34.7815, lng: 135.4696 }, // 主要ホテルが実質無いため簡易表示（近隣の空室ホテル件数）のまま
+  { name: "梅田・キタ", city: "大阪市", majorHotels: ["ホテルグランヴィア大阪", "リーガロイヤルホテル大阪", "ホテル阪急インターナショナル", "ホテルモントレ大阪", "ホテル阪神大阪"] },
+  { name: "難波・ミナミ", city: "大阪市", majorHotels: ["大阪マリオット都ホテル", "W大阪", "ホテルモントレ グラスミア大阪", "ホテルロイヤルクラシック大阪", "都シティ 大阪天王寺"] },
+  { name: "新大阪", city: "大阪市", majorHotels: ["からくさホテルグランデ新大阪タワー", "新大阪ステーションホテル", "コートヤード・バイ・マリオット新大阪ステーション", "レム新大阪", "アパホテル〈新大阪駅前タワー〉"] },
+  { name: "堺", city: "堺市", majorHotels: ["ドーセット バイ アゴーラ 大阪堺", "ホテル アゴーラ リージェンシー 大阪堺", "コンフォートホテル堺", "アパホテル〈堺駅前〉", "大阪ベイプラザホテル"] },
+  { name: "東大阪(布施)", city: "東大阪市", majorHotels: ["リッチモンドホテル東大阪", "U・コミュニティホテル"] },
+  { name: "吹田(江坂)", city: "吹田市", majorHotels: ["新大阪江坂東急REIホテル", "CANDEO HOTELS大阪岸辺", "ホテルクライトン江坂", "ホリデイ・イン&スイーツ新大阪", "ヴィアイン新大阪ウエスト"] },
+  { name: "豊中", city: "豊中市", majorHotels: ["ホテルファインガーデン豊中"] },
 ];
-let hotelsLastFetched = 0;
-let hotelsLoading = false;
 
-function hotelStatusClass(count) {
-  if (count <= 5) return "status-red";
-  if (count <= 20) return "status-orange";
+const HOTEL_WEEKDAY_BASE = [25, 15, 15, 15, 20, 45, 55]; // 日,月,火,水,木,金,土
+const HOTEL_PEAK_MONTHS = [3, 4, 5, 7, 8, 10, 11]; // 桜・GW・夏休み・紅葉シーズン
+
+function hotelDemandStatusClass(score) {
+  if (score >= 60) return "status-red";
+  if (score >= 30) return "status-orange";
   return "status-green";
 }
 
-function fullnessStatusClass(ratio) {
-  if (ratio >= 0.8) return "status-red";
-  if (ratio >= 0.4) return "status-orange";
-  return "status-green";
-}
-
-function starsFor(ratio) {
-  const filled = Math.round(ratio * 5);
+function starsForScore(score) {
+  let filled = 0;
+  if (score >= 80) filled = 5;
+  else if (score >= 60) filled = 4;
+  else if (score >= 40) filled = 3;
+  else if (score >= 20) filled = 2;
+  else if (score >= 1) filled = 1;
   return "★".repeat(filled) + "☆".repeat(5 - filled);
 }
 
-// 主要ホテル(hotelNo指定・カンマ区切りで一括取得)のうち何軒が満室かを調べる
-async function fetchAreaFullness(area, retrying) {
-  const today = dateStrOf(new Date());
-  const tomorrow = addDaysToStr(today, 1);
-  const hotelNoParam = area.benchmarks.map((b) => b.hotelNo).join(",");
-  const url = `https://openapi.rakuten.co.jp/engine/api/Travel/VacantHotelSearch/20170426?format=json&applicationId=${RAKUTEN_APP_ID}&accessKey=${RAKUTEN_ACCESS_KEY}&hotelNo=${hotelNoParam}&checkinDate=${today}&checkoutDate=${tomorrow}&adultNum=2&hits=30`;
-  const res = await fetch(url);
-  if (res.status === 429 && !retrying) {
-    await new Promise((r) => setTimeout(r, 2000));
-    return fetchAreaFullness(area, true);
-  }
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
-  if (data.error) throw new Error(data.error_description || data.error);
-  const vacantMap = new Map();
-  (data.hotels || []).forEach((h) => {
-    const basicEntry = (h.hotel || []).find((x) => x.hotelBasicInfo);
-    const basic = basicEntry ? basicEntry.hotelBasicInfo : {};
-    if (basic.hotelNo) {
-      vacantMap.set(basic.hotelNo, {
-        url: basic.hotelInformationUrl || "",
-        minCharge: basic.hotelMinCharge || null,
-      });
-    }
-  });
-  const total = area.benchmarks.length;
-  const vacantCount = area.benchmarks.filter((b) => vacantMap.has(b.hotelNo)).length;
-  const ratio = (total - vacantCount) / total;
-  return { ratio, total, vacantCount, vacantMap };
-}
-
-// ベンチマーク無しエリア用：周辺の空室ありホテルを単純に列挙
-async function fetchVacantHotels(area, retrying) {
-  const today = dateStrOf(new Date());
-  const tomorrow = addDaysToStr(today, 1);
-  const url = `https://openapi.rakuten.co.jp/engine/api/Travel/VacantHotelSearch/20170426?format=json&applicationId=${RAKUTEN_APP_ID}&accessKey=${RAKUTEN_ACCESS_KEY}&latitude=${area.lat}&longitude=${area.lng}&searchRadius=2&datumType=1&checkinDate=${today}&checkoutDate=${tomorrow}&adultNum=2&hits=30&sort=+roomCharge`;
-  const res = await fetch(url);
-  if (res.status === 429 && !retrying) {
-    await new Promise((r) => setTimeout(r, 2000));
-    return fetchVacantHotels(area, true);
-  }
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
-  if (data.error) throw new Error(data.error_description || data.error);
-  const count = data.pagingInfo?.recordCount ?? 0;
-  const hotels = (data.hotels || []).map((h) => {
-    const basicEntry = (h.hotel || []).find((x) => x.hotelBasicInfo);
-    const basic = basicEntry ? basicEntry.hotelBasicInfo : {};
-    return {
-      name: basic.hotelName || "名称不明",
-      url: basic.hotelInformationUrl || "",
-      minCharge: basic.hotelMinCharge || null,
-      address: basic.address2 || "",
-    };
-  });
-  return { count, hotels };
+function estimateHotelDemand(area, today, todaysEvents) {
+  const d = new Date(`${today}T00:00:00`);
+  const weekdayScore = HOTEL_WEEKDAY_BASE[d.getDay()];
+  const seasonScore = HOTEL_PEAK_MONTHS.includes(d.getMonth() + 1) ? 20 : 0;
+  const eventCount = todaysEvents.filter((ev) => ev.city === area.city).length;
+  const eventScore = Math.min(eventCount, 3) * 10;
+  const score = Math.min(100, weekdayScore + seasonScore + eventScore);
+  return { score, weekdayScore, seasonScore, eventScore, eventCount };
 }
 
 function toggleHotelDetail(idx) {
@@ -960,103 +874,47 @@ function toggleHotelDetail(idx) {
 }
 window.toggleHotelDetail = toggleHotelDetail;
 
-async function renderHotels(force) {
+const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
+
+function renderHotels() {
   const el = document.getElementById("hotelList");
-  if (!force && Date.now() - hotelsLastFetched < 5 * 60 * 1000) return;
-  if (hotelsLoading) return;
-  hotelsLoading = true;
-  el.innerHTML = `<div class="empty">読み込み中...</div>`;
-  const results = [];
-  for (const area of HOTEL_AREAS) {
-    try {
-      if (area.benchmarks) {
-        const { ratio, total, vacantCount, vacantMap } = await fetchAreaFullness(area);
-        results.push({ area, mode: "fullness", ratio, total, vacantCount, vacantMap, sortKey: ratio });
-      } else {
-        const { count, hotels } = await fetchVacantHotels(area);
-        const sortKey = count === null ? -1 : count <= 5 ? 1 : count <= 20 ? 0.6 : 0.2;
-        results.push({ area, mode: "count", count, hotels, sortKey });
-      }
-    } catch (err) {
-      console.error(`${area.name}の取得に失敗:`, err);
-      results.push({ area, mode: "error", sortKey: -1 });
-    }
-    await new Promise((r) => setTimeout(r, 1100));
-  }
-  hotelsLastFetched = Date.now();
-  hotelsLoading = false;
-  results.sort((a, b) => b.sortKey - a.sortKey);
-  el.innerHTML = results.map((r, idx) => {
-    const { area } = r;
-    if (r.mode === "fullness") {
-      const cls = fullnessStatusClass(r.ratio);
-      const detailRows = area.benchmarks.map((b) => {
-        const vacant = r.vacantMap.get(b.hotelNo);
-        return `
-          <div class="hotel-row">
-            <div class="hotel-row-name">
-              ${vacant && vacant.url ? `<a href="${escapeHtml(vacant.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(b.name)}</a>` : escapeHtml(b.name)}
-            </div>
-            <div class="hotel-row-sub" style="${vacant ? "" : "color:var(--red);font-weight:700;"}">${vacant ? (vacant.minCharge ? `空室あり ¥${Number(vacant.minCharge).toLocaleString()}〜` : "空室あり") : "満室"}</div>
-          </div>
-        `;
-      }).join("");
-      return `
-        <div class="card area-card ${cls}" onclick="toggleHotelDetail(${idx})">
-          <div class="card-main">
-            <div class="card-title">${escapeHtml(area.name)}</div>
-            <div class="card-sub">
-              <span class="chip">タップで主要ホテルの内訳を表示</span>
-              <a href="${mapUrlFor(area.name, "大阪")}" target="_blank" rel="noopener noreferrer" class="chip" style="color:var(--accent);" onclick="event.stopPropagation();">地図</a>
-            </div>
-          </div>
-          <div class="card-right">
-            <div class="remain" style="letter-spacing:1px;">${starsFor(r.ratio)}</div>
-            <div class="remain-time">主要ホテル${r.vacantCount}/${r.total}軒に空室</div>
-          </div>
+  const today = dateStrOf(new Date());
+  const todaysEvents = events.filter((ev) => ev.date === today);
+  const results = HOTEL_AREAS.map((area) => ({ area, ...estimateHotelDemand(area, today, todaysEvents) }));
+  results.sort((a, b) => b.score - a.score);
+  const weekdayLabel = WEEKDAY_LABELS[new Date(`${today}T00:00:00`).getDay()];
+  el.innerHTML = results.map((r, idx) => `
+    <div class="card area-card ${hotelDemandStatusClass(r.score)}" onclick="toggleHotelDetail(${idx})">
+      <div class="card-main">
+        <div class="card-title">${escapeHtml(r.area.name)}</div>
+        <div class="card-sub">
+          <span class="chip">タップで内訳を表示</span>
+          <a href="${mapUrlFor(r.area.name, "大阪")}" target="_blank" rel="noopener noreferrer" class="chip" style="color:var(--accent);" onclick="event.stopPropagation();">地図</a>
         </div>
-        <div class="hotel-detail" id="hotelDetail-${idx}">${detailRows}</div>
-      `;
-    }
-    if (r.mode === "count") {
-      const { count, hotels } = r;
-      return `
-        <div class="card area-card ${count === null ? "" : hotelStatusClass(count)}" onclick="toggleHotelDetail(${idx})">
-          <div class="card-main">
-            <div class="card-title">${escapeHtml(area.name)}</div>
-            <div class="card-sub">
-              <span class="chip">タップでホテル別を表示</span>
-              <a href="${mapUrlFor(area.name, "大阪")}" target="_blank" rel="noopener noreferrer" class="chip" style="color:var(--accent);" onclick="event.stopPropagation();">地図</a>
-            </div>
-          </div>
-          <div class="card-right">
-            <div class="remain">${count === null ? "取得失敗" : `空室あり ${count}件`}</div>
-          </div>
-        </div>
-        <div class="hotel-detail" id="hotelDetail-${idx}">
-          ${hotels.length ? hotels.map((h) => `
-            <div class="hotel-row">
-              <div class="hotel-row-name">
-                ${h.url ? `<a href="${escapeHtml(h.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(h.name)}</a>` : escapeHtml(h.name)}
-                ${h.address ? `<div style="font-size:11px;color:var(--text-dim);font-weight:normal;margin-top:2px;">${escapeHtml(h.address)}</div>` : ""}
-              </div>
-              <div class="hotel-row-sub">${h.minCharge ? `¥${Number(h.minCharge).toLocaleString()}〜` : "料金不明"}</div>
-            </div>
-          `).join("") : `<div class="empty">ホテル情報を取得できませんでした</div>`}
-        </div>
-      `;
-    }
-    return `
-      <div class="card area-card" onclick="toggleHotelDetail(${idx})">
-        <div class="card-main">
-          <div class="card-title">${escapeHtml(area.name)}</div>
-          <div class="card-sub"><span class="chip">タップで詳細</span></div>
-        </div>
-        <div class="card-right"><div class="remain">取得失敗</div></div>
       </div>
-      <div class="hotel-detail" id="hotelDetail-${idx}"><div class="empty">取得できませんでした</div></div>
-    `;
-  }).join("");
+      <div class="card-right">
+        <div class="remain" style="letter-spacing:1px;">${starsForScore(r.score)}</div>
+        <div class="remain-time">推定需要</div>
+      </div>
+    </div>
+    <div class="hotel-detail" id="hotelDetail-${idx}">
+      <div class="hotel-row">
+        <div class="hotel-row-name">曜日（${weekdayLabel}）</div>
+        <div class="hotel-row-sub">+${r.weekdayScore}</div>
+      </div>
+      <div class="hotel-row">
+        <div class="hotel-row-name">季節（観光繁忙期か）</div>
+        <div class="hotel-row-sub">+${r.seasonScore}</div>
+      </div>
+      <div class="hotel-row">
+        <div class="hotel-row-name">近隣の本日イベント（${r.eventCount}件）</div>
+        <div class="hotel-row-sub">+${r.eventScore}</div>
+      </div>
+      <div class="hotel-row" style="background:transparent;border:none;padding-top:2px;">
+        <div class="hotel-row-name" style="font-weight:normal;color:var(--text-dim);font-size:12px;">主要ホテル：${r.area.majorHotels.map(escapeHtml).join("、")}</div>
+      </div>
+    </div>
+  `).join("");
 }
 
 // ---------- tabs ----------
@@ -1066,7 +924,7 @@ document.querySelectorAll(".tabbtn").forEach(btn => {
     document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
     btn.classList.add("active");
     document.getElementById("panel-" + btn.dataset.tab).classList.add("active");
-    if (btn.dataset.tab === "hotels") renderHotels(false);
+    if (btn.dataset.tab === "hotels") renderHotels();
   });
 });
 
