@@ -735,16 +735,6 @@ function sampleTrains() {
   ];
   return lines.map(([name, areas]) => ({ name, areas, status:"normal", updatedAt:new Date().toISOString() }));
 }
-function sampleEvents() {
-  const today = dateStrOf(new Date());
-  return [
-    { venue:"京セラドーム大阪", title:"サンプルライブ", date:today, endTime:"21:00", city:"大阪市", genre:"ライブ", isSample:true },
-    { venue:"大阪城ホール", title:"サンプルコンサート", date:today, endTime:"20:30", city:"大阪市", genre:"ライブ", isSample:true },
-    { venue:"パナソニック スタジアム吹田", title:"サンプル試合", date:addDaysToStr(today,2), endTime:"22:00", city:"吹田市", genre:"スポーツ", isSample:true },
-    { venue:"堺市産業振興センター", title:"サンプル展示会", date:addDaysToStr(today,5), endTime:"18:00", city:"堺市", genre:"展示会", isSample:true },
-  ];
-}
-
 // ---------- state ----------
 let venues = [], trains = [], events = [];
 let eventScope = "today";
@@ -1200,7 +1190,6 @@ setInterval(() => { renderVenues(); renderEvents(); renderTrains(); }, 30000);
   try {
     await maybeSeed("venues", sampleVenues());
     await maybeSeed("trains", sampleTrains());
-    await maybeSeed("events", sampleEvents());
   } catch (err) {
     console.error(err);
     showConnWarning();

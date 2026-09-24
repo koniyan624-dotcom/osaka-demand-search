@@ -19,8 +19,12 @@ function estimateEndTime(startHHMM, hours = 2.5) {
   return `${eh}:${pad2(em)}`;
 }
 
+// Firestoreのドキュメント名として安全な文字列に変換する。
+// 日本語の会場名・公演名も一意性を保つ必要があるため、英数字以外を
+// 全て除去するのではなく、区切り文字（スラッシュ・空白）だけを
+// アンダースコアに置換して残す。
 function slug(id) {
-  return id.replace(/[^a-zA-Z0-9_-]/g, "");
+  return id.replace(/[\/\s]+/g, "_").slice(0, 150);
 }
 
 const ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', "#039": "'", nbsp: " " };
@@ -395,9 +399,10 @@ async function main() {
       console.error(`${label}の取得に失敗（今回はスキップ）: ${err.message}`);
       continue;
     }
-    let i = 0;
     for (const ev of events) {
-      const id = `auto_${slug(ev.venue)}_${ev.date}_${i++}`;
+      // venue+date+titleで一意なIDにする。取得結果の並び順に依存する通し番号だと、
+      // サイト側の表示順が変わった際に同じイベントへ別IDが振られて重複が積み重なるため。
+      const id = `auto_${slug(ev.venue)}_${ev.date}_${slug(ev.title)}`;
       await setDoc(doc(db, "events", id), {
         ...ev,
         isSample: false,
