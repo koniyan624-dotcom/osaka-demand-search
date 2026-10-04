@@ -19,7 +19,7 @@ function todayJst() {
   return `${y}-${m}-${d}`;
 }
 
-async function fetchUsjTodayHours() {
+async function fetchUsjTodayHoursOnce() {
   const browser = await puppeteer.launch({
     headless: "new",
     args: ["--no-sandbox", "--disable-setuid-sandbox"],
@@ -27,7 +27,7 @@ async function fetchUsjTodayHours() {
   try {
     const page = await browser.newPage();
     await page.goto(SCHEDULE_URL, { waitUntil: "networkidle2", timeout: 60000 });
-    await page.waitForSelector("div.hour-date.ng-star-inserted", { timeout: 20000 });
+    await page.waitForSelector("div.hour-date.ng-star-inserted", { timeout: 40000 });
 
     const days = await page.$$eval("div.hour-date.ng-star-inserted", (blocks) =>
       blocks.map((el) => {
@@ -55,6 +55,25 @@ async function fetchUsjTodayHours() {
   } finally {
     await browser.close();
   }
+}
+
+// USJ公式サイトの描画が遅い・タイムアウトすることがまれにあるため、
+// 最大3回まで間隔を空けて再試行する。
+async function fetchUsjTodayHours() {
+  const maxAttempts = 3;
+  let lastErr;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fetchUsjTodayHoursOnce();
+    } catch (err) {
+      lastErr = err;
+      console.error(`取得に失敗（${attempt}/${maxAttempts}回目）: ${err.message}`);
+      if (attempt < maxAttempts) {
+        await new Promise((r) => setTimeout(r, 8000));
+      }
+    }
+  }
+  throw lastErr;
 }
 
 async function main() {
