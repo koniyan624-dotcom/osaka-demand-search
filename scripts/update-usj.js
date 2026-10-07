@@ -4,9 +4,14 @@
 // ページを描画し、レンダリング後のDOMから本日の営業時間を読み取る。
 // 他の自動取得スクリプトより重い処理（ヘッドレスChromiumの起動）を伴う。
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, setDoc } from "firebase/firestore";
+import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
 import puppeteer from "puppeteer";
 import { firebaseConfig } from "../firebase-config.js";
+
+// 再試行しても取得できなかった場合、直近この時間内に一度でも成功していれば
+// 「まだ数時間古いだけ」としてメール通知のトリガーになる異常終了はせず、
+// 次回（3時間後）の自動実行に委ねる。これより古くなって初めて実際に知らせる。
+const STALE_THRESHOLD_MS = 20 * 60 * 60 * 1000; // 20時間
 
 const SCHEDULE_URL = "https://www.usj.co.jp/web/ja/jp/park-guide/schedule/park-hour2";
 
@@ -79,10 +84,23 @@ async function fetchUsjTodayHours() {
 async function main() {
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
+  const ref = doc(db, "venues", "auto_usj");
 
-  const hours = await fetchUsjTodayHours();
+  let hours;
+  try {
+    hours = await fetchUsjTodayHours();
+  } catch (err) {
+    const snap = await getDoc(ref);
+    const lastUpdatedAt = snap.exists() ? new Date(snap.data().updatedAt).getTime() : 0;
+    const staleMs = Date.now() - lastUpdatedAt;
+    if (staleMs < STALE_THRESHOLD_MS) {
+      console.warn(`USJの取得に失敗したが、前回の取得から${Math.round(staleMs / 60000)}分しか経っていないため今回はスキップ（次回に再取得）: ${err.message}`);
+      return;
+    }
+    throw err;
+  }
 
-  await setDoc(doc(db, "venues", "auto_usj"), {
+  await setDoc(ref, {
     name: "USJ（ユニバーサル・スタジオ・ジャパン）",
     city: "大阪市",
     time: hours.close,
